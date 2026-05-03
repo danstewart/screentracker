@@ -3,7 +3,8 @@
 import os
 import sqlite3
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "..", "db", "shows.db")
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "db", "shows.db")
+os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
 
 def get_db():
@@ -13,7 +14,6 @@ def get_db():
 
 
 def init_db():
-    os.makedirs(os.path.dirname(os.path.abspath(DB_PATH)), exist_ok=True)
     conn = get_db()
     c = conn.cursor()
     c.execute("""
