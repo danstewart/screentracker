@@ -290,10 +290,81 @@ function setView(view) {
   viewTabs.forEach((t) => t.classList.toggle("active", t.dataset.view === view));
   watchingLibrary.classList.toggle("hidden", view !== "watching");
   watchedLibrary.classList.toggle("hidden", view !== "watched");
+  buildFilters(view === "watching" ? watchingLibrary : watchedLibrary);
 }
 
 setView(localStorage.getItem("library-view") || "watching");
 viewTabs.forEach((tab) => tab.addEventListener("click", () => setView(tab.dataset.view)));
+
+// ---------- Filters ----------
+const filterBar = $("#filter-bar");
+
+function buildFilters(libraryEl) {
+  const blocks = $$(".genre-block", libraryEl);
+  const filterGroup = $("#genre-filter-group");
+
+  // Show/hide the whole bar based on whether there's anything to filter
+  const hasContent = blocks.length > 0 || $$(".show-card", libraryEl).length > 0;
+  filterBar.classList.toggle("hidden", !hasContent);
+  if (!hasContent) return;
+
+  // Reset genre chips
+  filterGroup.innerHTML = '<span class="filter-label">Genre</span>';
+  blocks.forEach((block) => {
+    const isOrphan = block.classList.contains("orphan-block");
+    const key = isOrphan ? "orphan" : (block.dataset.genreId || "orphan");
+    const name = $(".genre-header h2", block).textContent;
+
+    const label = document.createElement("label");
+    label.className = "filter-chip active";
+    label.innerHTML = `<input type="checkbox" class="genre-filter" value="${escapeAttr(key)}" checked />${escapeHtml(name)}`;
+    label.querySelector("input").addEventListener("change", (e) => {
+      label.classList.toggle("active", e.target.checked);
+      applyFilters(libraryEl);
+    });
+    filterGroup.appendChild(label);
+  });
+
+  // Reset type chips to checked when switching views
+  $$(".type-filter").forEach((input) => {
+    input.checked = true;
+    input.closest(".filter-chip").classList.add("active");
+  });
+
+  // Wire up type filters for this view
+  $$(".type-filter").forEach((input) => {
+    input.onchange = (e) => {
+      input.closest(".filter-chip").classList.toggle("active", e.target.checked);
+      applyFilters(libraryEl);
+    };
+  });
+
+  // Clear any leftover filter state from previous view
+  $$(".filtered-out", libraryEl).forEach((el) => el.classList.remove("filtered-out"));
+}
+
+function applyFilters(libraryEl) {
+  const activeTypes = new Set($$(".type-filter:checked").map((el) => el.value));
+  const activeGenres = new Set($$(".genre-filter:checked").map((el) => el.value));
+
+  $$(".genre-block", libraryEl).forEach((block) => {
+    const isOrphan = block.classList.contains("orphan-block");
+    const key = isOrphan ? "orphan" : (block.dataset.genreId || "orphan");
+    const genreActive = activeGenres.has(key);
+
+    let anyVisible = false;
+    $$(".show-card", block).forEach((card) => {
+      const type = card.dataset.type;
+      // Shows with no type (manually added) are unaffected by the type filter
+      const typeActive = !type || activeTypes.has(type);
+      const visible = genreActive && typeActive;
+      card.classList.toggle("filtered-out", !visible);
+      if (visible) anyVisible = true;
+    });
+
+    block.classList.toggle("filtered-out", !anyVisible);
+  });
+}
 
 // ---------- Card menu ----------
 function closeAllMenus() {
