@@ -1,0 +1,35 @@
+<div class="show-card" data-show-id="{{ show.id }}">
+  <div class="poster">
+    {% if show.poster_url %}
+      <img src="{{ show.poster_url }}" alt="{{ show.title }} poster" loading="lazy" />
+    {% else %}
+      <div class="poster-placeholder">{{ show.title[0]|upper }}</div>
+    {% endif %}
+  </div>
+  <div class="show-meta">
+    <div class="show-meta-top">
+      <div>
+        <h3 class="show-title">{{ show.title }}</h3>
+        <p class="show-sub">
+          {% if show.year %}{{ show.year }}{% endif %}
+          {% if show.tvdb_type %} · {{ show.tvdb_type|capitalize }}{% endif %}
+        </p>
+      </div>
+      <div class="show-menu">
+        <button class="show-menu-btn" data-show-id="{{ show.id }}" title="Actions">⋯</button>
+        <div class="show-menu-dropdown hidden">
+          {% if show.imdb_url %}
+            <a class="menu-item show-imdb" href="{{ show.imdb_url }}" target="_blank">IMDb</a>
+          {% endif %}
+          {% if show.watched %}
+            <button class="menu-item show-unwatch" data-show-id="{{ show.id }}">Unwatch</button>
+          {% else %}
+            <button class="menu-item show-watched" data-show-id="{{ show.id }}">Mark watched</button>
+          {% endif %}
+          <button class="menu-item show-move" data-show-id="{{ show.id }}">Edit genre</button>
+          <button class="menu-item show-delete danger" data-show-id="{{ show.id }}">Remove</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

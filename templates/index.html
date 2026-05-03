@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>TV Show & Movie Library</title>
+		<link
+			href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap"
+			rel="stylesheet"
+		/>
+		<link
+			rel="icon"
+			href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎥</text></svg>"
+		/>
+		<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+	</head>
+	<body>
+		<header class="site-header">
+			<div class="brand">
+				<h1>SCREEN<span>TRACKER</span></h1>
+				<p>Personal TV &amp; Film Library</p>
+			</div>
+
+			<div class="search-wrap">
+				<input id="search-input" type="text" placeholder="Search for a show or movie…" autocomplete="off" />
+				<div id="search-results" class="search-results hidden"></div>
+				<button id="add-manual-btn" class="btn-secondary">Add manually</button>
+			</div>
+		</header>
+
+		{% if not tvdb_configured %}
+		<div class="warning-banner">
+			⚠️ TVDB API key not configured. Set the <code>TVDB_API_KEY</code> environment variable. Get a key free at
+			<a href="https://thetvdb.com/api-information" target="_blank">thetvdb.com/api-information</a>.
+		</div>
+		{% endif %}
+
+		<main>
+			<div class="view-tabs">
+				<button class="view-tab" data-view="watching">Watching</button>
+				<button class="view-tab" data-view="watched">Watched</button>
+			</div>
+
+			<div id="watching-library">
+				{% if not watching_grouped and not watching_orphans %}
+				<div class="empty-state">
+					<h2>Your library is empty</h2>
+					<p>Search above to add your first show or film.</p>
+				</div>
+				{% endif %} {% for block in watching_grouped %}
+				<section class="genre-block" data-genre-id="{{ block.genre.id }}">
+					<header class="genre-header">
+						<h2>{{ block.genre.name }}</h2>
+					</header>
+					<div class="shows-grid">
+						{% for show in block.shows %}{% include "_show_card.html" %}{% endfor %}
+					</div>
+				</section>
+				{% endfor %} {% if watching_orphans %}
+				<section class="genre-block orphan-block">
+					<header class="genre-header"><h2>Uncategorised</h2></header>
+					<div class="shows-grid">
+						{% for show in watching_orphans %}{% include "_show_card.html" %}{% endfor %}
+					</div>
+				</section>
+				{% endif %}
+			</div>
+
+			<div id="watched-library" class="hidden">
+				{% if not watched_grouped and not watched_orphans %}
+				<div class="empty-state">
+					<h2>Nothing watched yet</h2>
+					<p>Mark shows as watched and they'll appear here.</p>
+				</div>
+				{% endif %} {% for block in watched_grouped %}
+				<section class="genre-block" data-genre-id="{{ block.genre.id }}">
+					<header class="genre-header">
+						<h2>{{ block.genre.name }}</h2>
+					</header>
+					<div class="shows-grid">
+						{% for show in block.shows %}{% include "_show_card.html" %}{% endfor %}
+					</div>
+				</section>
+				{% endfor %} {% if watched_orphans %}
+				<section class="genre-block orphan-block">
+					<header class="genre-header"><h2>Uncategorised</h2></header>
+					<div class="shows-grid">
+						{% for show in watched_orphans %}{% include "_show_card.html" %}{% endfor %}
+					</div>
+				</section>
+				{% endif %}
+			</div>
+		</main>
+
+		<!-- Move-genre modal -->
+		<div id="genre-modal" class="modal hidden">
+			<div class="modal-content">
+				<h3>Edit genre</h3>
+				<div id="modal-preview"></div>
+				<label>Choose or create a genre:</label>
+				<input
+					id="genre-input"
+					type="text"
+					list="genre-suggestions"
+					placeholder="e.g. Drama – Crime / Thriller"
+				/>
+				<datalist id="genre-suggestions"></datalist>
+				<div class="modal-actions">
+					<button id="modal-cancel" class="btn-secondary">Cancel</button>
+					<button id="modal-confirm" class="btn-primary">Save</button>
+				</div>
+			</div>
+		</div>
+
+		<!-- Manual add modal -->
+		<div id="manual-modal" class="modal hidden">
+			<div class="modal-content">
+				<h3>Add manually</h3>
+				<label for="manual-title">Title</label>
+				<input id="manual-title" type="text" placeholder="e.g. The Wire" />
+				<label for="manual-genre">Genre</label>
+				<input id="manual-genre" type="text" list="manual-genre-suggestions" placeholder="e.g. Drama" />
+				<datalist id="manual-genre-suggestions"></datalist>
+				<label for="manual-imdb"
+					>IMDb URL <span style="text-transform: none; letter-spacing: 0">(optional)</span></label
+				>
+				<input id="manual-imdb" type="url" placeholder="https://www.imdb.com/title/…" />
+				<div class="modal-actions">
+					<button id="manual-cancel" class="btn-secondary">Cancel</button>
+					<button id="manual-confirm" class="btn-primary">Add</button>
+				</div>
+			</div>
+		</div>
+
+		<!-- Show card template (used by JS) -->
+		<template id="show-card-template">
+			<div class="show-card" data-show-id="">
+				<div class="poster"><img src="" alt="" loading="lazy" /></div>
+				<div class="show-meta">
+					<h3 class="show-title"></h3>
+					<p class="show-sub"></p>
+					<div class="show-actions">
+						<a class="show-imdb" href="#" target="_blank">IMDb</a>
+						<button class="show-move">Move</button>
+						<button class="show-delete" title="Remove">×</button>
+					</div>
+				</div>
+			</div>
+		</template>
+
+		<script src="{{ url_for('static', filename='app.js') }}"></script>
+	</body>
+</html>
