@@ -7,6 +7,8 @@ services:
         environment:
             FLASK_DEBUG: ${FLASK_DEBUG:-0}
             ENVIRONMENT: production
+        env_file:
+            - .env
         container_name: "tvshow-manager"
         image: "tvshow-manager:latest"
         restart: unless-stopped

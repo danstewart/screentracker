@@ -22,7 +22,6 @@ RUN mkdir -p /home/app/tvshow-manager/db
 
 ENV PATH="/home/app/.local/bin/:${PATH}"
 
-COPY .env .env
 COPY --chown=app requirements.txt ./
 RUN pip install -r requirements.txt
 
