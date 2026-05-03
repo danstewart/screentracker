@@ -331,6 +331,10 @@ function buildFilters(libraryEl) {
     input.closest(".filter-chip").classList.add("active");
   });
 
+  // Reset text inputs when switching views
+  $("#title-filter").value = "";
+  $("#year-filter").value = "";
+
   // Wire up type filters for this view
   $$(".type-filter").forEach((input) => {
     input.onchange = (e) => {
@@ -341,11 +345,19 @@ function buildFilters(libraryEl) {
 
   // Clear any leftover filter state from previous view
   $$(".filtered-out", libraryEl).forEach((el) => el.classList.remove("filtered-out"));
+
+  sortShows(libraryEl);
+}
+
+function currentLibrary() {
+  return watchingLibrary.classList.contains("hidden") ? watchedLibrary : watchingLibrary;
 }
 
 function applyFilters(libraryEl) {
   const activeTypes = new Set($$(".type-filter:checked").map((el) => el.value));
   const activeGenres = new Set($$(".genre-filter:checked").map((el) => el.value));
+  const titleQ = $("#title-filter").value.trim().toLowerCase();
+  const yearQ = $("#year-filter").value.trim();
 
   $$(".genre-block", libraryEl).forEach((block) => {
     const isOrphan = block.classList.contains("orphan-block");
@@ -355,16 +367,55 @@ function applyFilters(libraryEl) {
     let anyVisible = false;
     $$(".show-card", block).forEach((card) => {
       const type = card.dataset.type;
-      // Shows with no type (manually added) are unaffected by the type filter
       const typeActive = !type || activeTypes.has(type);
-      const visible = genreActive && typeActive;
+      const title = $(".show-title", card).textContent.toLowerCase();
+      const year = card.dataset.year || "";
+      const visible = genreActive && typeActive
+        && (!titleQ || title.includes(titleQ))
+        && (!yearQ || year.startsWith(yearQ));
       card.classList.toggle("filtered-out", !visible);
       if (visible) anyVisible = true;
     });
 
     block.classList.toggle("filtered-out", !anyVisible);
   });
+
+  sortShows(libraryEl);
 }
+
+function sortShows(libraryEl) {
+  const sortVal = $("#sort-select").value;
+
+  $$(".genre-block", libraryEl).forEach((block) => {
+    const grid = $(".shows-grid", block);
+    const cards = $$(".show-card", block);
+
+    cards.sort((a, b) => {
+      switch (sortVal) {
+        case "title-desc":
+          return $(".show-title", b).textContent.localeCompare($(".show-title", a).textContent);
+        case "year-desc":
+          return parseInt(b.dataset.year || 0) - parseInt(a.dataset.year || 0);
+        case "year-asc":
+          return parseInt(a.dataset.year || 0) - parseInt(b.dataset.year || 0);
+        case "added-desc":
+          return (b.dataset.added || "").localeCompare(a.dataset.added || "");
+        case "added-asc":
+          return (a.dataset.added || "").localeCompare(b.dataset.added || "");
+        default: // title-asc
+          return $(".show-title", a).textContent.localeCompare($(".show-title", b).textContent);
+      }
+    });
+
+    cards.forEach((card) => grid.appendChild(card));
+  });
+}
+
+$("#title-filter").addEventListener("input", () => applyFilters(currentLibrary()));
+$("#year-filter").addEventListener("input", () => applyFilters(currentLibrary()));
+$("#sort-select").addEventListener("change", () => {
+  applyFilters(currentLibrary());
+});
 
 // ---------- Card menu ----------
 function closeAllMenus() {

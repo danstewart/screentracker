@@ -1,4 +1,4 @@
-<div class="show-card" data-show-id="{{ show.id }}" data-type="{{ show.tvdb_type }}">
+<div class="show-card" data-show-id="{{ show.id }}" data-type="{{ show.tvdb_type }}" data-year="{{ show.year }}" data-added="{{ show.added_at }}">
   <div class="poster">
     {% if show.poster_url %}
       <img src="{{ show.poster_url }}" alt="{{ show.title }} poster" loading="lazy" />

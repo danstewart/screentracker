@@ -60,6 +60,25 @@
 				<div class="filter-group" id="genre-filter-group">
 					<span class="filter-label">Genre</span>
 				</div>
+				<div class="filter-group">
+					<span class="filter-label">Title</span>
+					<input id="title-filter" class="filter-input" type="text" placeholder="Filter…" autocomplete="off" />
+				</div>
+				<div class="filter-group">
+					<span class="filter-label">Year</span>
+					<input id="year-filter" class="filter-input filter-input--narrow" type="text" placeholder="e.g. 2023" autocomplete="off" />
+				</div>
+				<div class="filter-group">
+					<span class="filter-label">Sort</span>
+					<select id="sort-select" class="filter-select">
+						<option value="title-asc">Title A→Z</option>
+						<option value="title-desc">Title Z→A</option>
+						<option value="year-desc">Year (newest)</option>
+						<option value="year-asc">Year (oldest)</option>
+						<option value="added-desc">Recently added</option>
+						<option value="added-asc">Oldest added</option>
+					</select>
+				</div>
 			</div>
 
 			<div id="watching-library">
