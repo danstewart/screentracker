@@ -17,8 +17,8 @@ RUN --mount=type=cache,target=/var/cache/apt,id=apt \
 
 RUN useradd --create-home app
 USER app
-WORKDIR /home/app/tvshow-manager
-RUN mkdir -p /home/app/tvshow-manager/db
+WORKDIR /home/app/screentracker
+RUN mkdir -p /home/app/screentracker/db
 
 ENV PATH="/home/app/.local/bin/:${PATH}"
 
