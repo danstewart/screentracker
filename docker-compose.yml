@@ -11,6 +11,6 @@ services:
         image: "tvshow-manager:latest"
         restart: unless-stopped
         volumes:
-            - "./db:./db"
+            - "./db:/home/dan/containers/screentracker/db"
         ports:
             - ${PORT:-1234}:1234
