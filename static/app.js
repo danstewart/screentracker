@@ -114,8 +114,7 @@ function bindSuggestions(inputEl, listEl) {
       .join("");
 
     $$(".suggestion-item", listEl).forEach((item, i) => {
-      item.addEventListener("pointerdown", (e) => {
-        e.preventDefault();
+      item.addEventListener("click", () => {
         inputEl.value = filtered[i].name;
         listEl.classList.add("hidden");
       });
