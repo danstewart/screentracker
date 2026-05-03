@@ -113,6 +113,16 @@ def api_create_genre():
         conn.close()
 
 
+@app.route("/api/shows/in-library")
+def api_in_library():
+    conn = db.get_db()
+    rows = conn.execute(
+        "SELECT tvdb_id, tvdb_type FROM shows WHERE tvdb_id != ''"
+    ).fetchall()
+    conn.close()
+    return jsonify({"shows": [dict(r) for r in rows]})
+
+
 @app.route("/api/shows", methods=["POST"])
 def api_add_show():
     data = request.get_json(force=True)
@@ -129,6 +139,21 @@ def api_add_show():
             genre_name = tvdb_genres[-1]
 
     conn = db.get_db()
+    tvdb_id = data.get("tvdb_id", "")
+    if tvdb_id:
+        dup = conn.execute(
+            "SELECT id FROM shows WHERE tvdb_id = ? AND tvdb_type = ?",
+            (tvdb_id, data.get("tvdb_type", "")),
+        ).fetchone()
+    else:
+        dup = conn.execute(
+            "SELECT id FROM shows WHERE LOWER(title) = LOWER(?)",
+            (data.get("title", ""),),
+        ).fetchone()
+    if dup:
+        conn.close()
+        return jsonify({"error": "Already in your library"}), 409
+
     # Seed all TVDB genres into the DB so they appear as suggestions
     for g in tvdb_genres:
         db.resolve_genre(conn, genre_name=g)

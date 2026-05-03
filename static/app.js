@@ -3,7 +3,25 @@ const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
 // ---------- State ----------
-let currentMoveShowId = null; // when "Move" is clicked
+let currentMoveShowId = null;
+let libraryIndex = null; // Set of "tvdb_type:tvdb_id" strings
+
+async function ensureLibraryIndex() {
+  if (libraryIndex !== null) return;
+  try {
+    const r = await fetch("/api/shows/in-library");
+    const data = await r.json();
+    libraryIndex = new Set(
+      data.shows.filter((s) => s.tvdb_id).map((s) => `${s.tvdb_type}:${s.tvdb_id}`)
+    );
+  } catch (_) {
+    libraryIndex = new Set();
+  }
+}
+
+function inLibrary(result) {
+  return !!(libraryIndex && result.tvdb_id && libraryIndex.has(`${result.tvdb_type}:${result.tvdb_id}`));
+}
 
 // ---------- Search ----------
 const searchInput = $("#search-input");
@@ -34,6 +52,8 @@ async function doSearch(q) {
   searchResults.classList.remove("hidden");
   searchResults.innerHTML = `<div class="search-loading">Searching…</div>`;
 
+  await ensureLibraryIndex();
+
   try {
     const r = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
     const data = await r.json();
@@ -52,6 +72,7 @@ async function doSearch(q) {
 
     $$(".search-result").forEach((el, idx) => {
       el.addEventListener("click", () => {
+        if (el.classList.contains("in-library")) return;
         addShow(data.results[idx]);
       });
     });
@@ -74,11 +95,14 @@ function renderResult(r) {
   if (r.network) metaParts.push(r.network);
   if (r.country) metaParts.push(r.country.toUpperCase());
 
+  const already = inLibrary(r);
+  const alreadyBadge = already ? `<span class="badge in-library-badge">In library</span>` : "";
+
   return `
-    <div class="search-result">
+    <div class="search-result${already ? " in-library" : ""}">
       ${poster}
       <div class="info">
-        <h4>${escapeHtml(r.title)} ${badge}</h4>
+        <h4>${escapeHtml(r.title)} ${badge} ${alreadyBadge}</h4>
         <div class="meta">${metaParts.map(escapeHtml).join(" · ")}</div>
         <div class="overview">${escapeHtml(r.overview || "")}</div>
       </div>
@@ -150,6 +174,10 @@ async function submitShow(payload) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
+  if (r.status === 409) {
+    showDuplicateToast(payload.title);
+    return;
+  }
   const data = await r.json();
   sessionStorage.setItem("flash_added", JSON.stringify({
     title: data.show.title,
@@ -157,6 +185,26 @@ async function submitShow(payload) {
     showId: data.show.id,
   }));
   location.reload();
+}
+
+function showDuplicateToast(title) {
+  const toast = document.createElement("div");
+  toast.className = "flash-toast";
+  toast.innerHTML = `
+    <span class="flash-msg"><strong>${escapeHtml(title)}</strong> is already in your library</span>
+    <button class="flash-close">×</button>
+  `;
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add("flash-show"));
+  const dismiss = () => {
+    toast.classList.remove("flash-show");
+    toast.addEventListener("transitionend", () => toast.remove(), { once: true });
+  };
+  const timer = setTimeout(dismiss, 4000);
+  toast.querySelector(".flash-close").addEventListener("click", () => {
+    clearTimeout(timer);
+    dismiss();
+  });
 }
 
 async function addShow(result) {
@@ -279,6 +327,7 @@ document.addEventListener("click", async (e) => {
     const id = e.target.dataset.showId;
     if (!confirm("Remove this from your library?")) return;
     await fetch(`/api/shows/${id}`, { method: "DELETE" });
+    libraryIndex = null;
     const card = e.target.closest(".show-card");
     const section = card.closest(".genre-block");
     card.remove();
