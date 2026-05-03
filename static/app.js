@@ -86,21 +86,64 @@ function renderResult(r) {
   `;
 }
 
+// ---------- Genre suggestions ----------
+let cachedGenres = [];
+
+async function loadGenres() {
+  try {
+    const r = await fetch("/api/genres");
+    const data = await r.json();
+    cachedGenres = data.genres;
+  } catch (_) {}
+}
+
+function bindSuggestions(inputEl, listEl) {
+  function render() {
+    const q = inputEl.value.trim().toLowerCase();
+    const filtered = q
+      ? cachedGenres.filter((g) => g.name.toLowerCase().includes(q))
+      : cachedGenres;
+
+    if (!filtered.length) {
+      listEl.classList.add("hidden");
+      return;
+    }
+
+    listEl.innerHTML = filtered
+      .map((g) => `<div class="suggestion-item">${escapeHtml(g.name)}</div>`)
+      .join("");
+
+    $$(".suggestion-item", listEl).forEach((item, i) => {
+      item.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        inputEl.value = filtered[i].name;
+        listEl.classList.add("hidden");
+      });
+    });
+
+    listEl.classList.remove("hidden");
+  }
+
+  inputEl.addEventListener("focus", render);
+  inputEl.addEventListener("input", render);
+
+  // Hide when clicking/tapping outside the input wrap
+  document.addEventListener("click", (e) => {
+    if (!inputEl.closest(".genre-input-wrap").contains(e.target)) {
+      listEl.classList.add("hidden");
+    }
+  });
+}
+
 // ---------- Add modal ----------
 const modal = $("#genre-modal");
 const modalPreview = $("#modal-preview");
 const genreInput = $("#genre-input");
-const genreSuggestions = $("#genre-suggestions");
+const genreSuggestionsList = $("#genre-suggestions-list");
 const modalConfirm = $("#modal-confirm");
 const modalCancel = $("#modal-cancel");
 
-async function refreshGenreSuggestions() {
-  const r = await fetch("/api/genres");
-  const data = await r.json();
-  genreSuggestions.innerHTML = data.genres
-    .map((g) => `<option value="${escapeAttr(g.name)}">`)
-    .join("");
-}
+bindSuggestions(genreInput, genreSuggestionsList);
 
 async function submitShow(payload) {
   const r = await fetch("/api/shows", {
@@ -123,7 +166,7 @@ async function addShow(result) {
   await submitShow({ ...result, genre_name: "" });
 }
 
-function openMoveModal(showId, currentTitle, currentGenre) {
+async function openMoveModal(showId, currentTitle, currentGenre) {
   currentMoveShowId = showId;
 
   modalPreview.innerHTML = `
@@ -133,12 +176,37 @@ function openMoveModal(showId, currentTitle, currentGenre) {
   `;
 
   genreInput.value = currentGenre || "";
-  refreshGenreSuggestions();
+
+  // Reset TVDB suggestions
+  const tvdbSection = $("#tvdb-genre-suggestions");
+  tvdbSection.classList.add("hidden");
+  $("#tvdb-suggestion-chips").innerHTML = "";
+
+  await loadGenres();
   modal.classList.remove("hidden");
   setTimeout(() => {
     genreInput.focus();
     genreInput.select();
   }, 50);
+
+  // Fetch TVDB genre suggestions for this show (non-blocking)
+  fetch(`/api/shows/${showId}/tvdb-genres`)
+    .then((r) => r.json())
+    .then((data) => {
+      if (!data.genres || !data.genres.length) return;
+      const chipsEl = $("#tvdb-suggestion-chips");
+      chipsEl.innerHTML = data.genres
+        .map((g) => `<button class="genre-chip" type="button">${escapeHtml(g)}</button>`)
+        .join("");
+      $$(".genre-chip", chipsEl).forEach((chip, i) => {
+        chip.addEventListener("click", () => {
+          genreInput.value = data.genres[i];
+          genreSuggestionsList.classList.add("hidden");
+        });
+      });
+      tvdbSection.classList.remove("hidden");
+    })
+    .catch(() => {});
 }
 
 modalCancel.addEventListener("click", () => modal.classList.add("hidden"));
@@ -263,17 +331,15 @@ const manualModal = $("#manual-modal");
 const manualTitle = $("#manual-title");
 const manualGenre = $("#manual-genre");
 const manualImdb = $("#manual-imdb");
-const manualGenreSuggestions = $("#manual-genre-suggestions");
+const manualGenreSuggestionsList = $("#manual-genre-suggestions-list");
+
+bindSuggestions(manualGenre, manualGenreSuggestionsList);
 
 async function openManualModal() {
   manualTitle.value = "";
   manualGenre.value = "";
   manualImdb.value = "";
-  const r = await fetch("/api/genres");
-  const data = await r.json();
-  manualGenreSuggestions.innerHTML = data.genres
-    .map((g) => `<option value="${escapeAttr(g.name)}">`)
-    .join("");
+  await loadGenres();
   manualModal.classList.remove("hidden");
   setTimeout(() => manualTitle.focus(), 50);
 }

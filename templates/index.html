@@ -2,7 +2,7 @@
 <html lang="en">
 	<head>
 		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 		<title>TV Show & Movie Library</title>
 		<link
 			href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap"
@@ -12,6 +12,12 @@
 			rel="icon"
 			href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎥</text></svg>"
 		/>
+		<link rel="apple-touch-icon" href="{{ url_for('static', filename='icon-180.png') }}" />
+		<link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black" />
+		<meta name="apple-mobile-web-app-title" content="ScreenTracker" />
+		<meta name="theme-color" content="#0d0d0d" />
 		<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
 	</head>
 	<body>
@@ -98,13 +104,19 @@
 				<h3>Edit genre</h3>
 				<div id="modal-preview"></div>
 				<label>Choose or create a genre:</label>
-				<input
-					id="genre-input"
-					type="text"
-					list="genre-suggestions"
-					placeholder="e.g. Drama – Crime / Thriller"
-				/>
-				<datalist id="genre-suggestions"></datalist>
+				<div class="genre-input-wrap">
+					<input
+						id="genre-input"
+						type="text"
+						autocomplete="off"
+						placeholder="e.g. Drama – Crime / Thriller"
+					/>
+					<div id="genre-suggestions-list" class="suggestions-list hidden"></div>
+				</div>
+				<div id="tvdb-genre-suggestions" class="tvdb-suggestions hidden">
+					<p class="tvdb-suggestions-label">Suggested by TVDB:</p>
+					<div id="tvdb-suggestion-chips" class="suggestion-chips"></div>
+				</div>
 				<div class="modal-actions">
 					<button id="modal-cancel" class="btn-secondary">Cancel</button>
 					<button id="modal-confirm" class="btn-primary">Save</button>
@@ -119,8 +131,10 @@
 				<label for="manual-title">Title</label>
 				<input id="manual-title" type="text" placeholder="e.g. The Wire" />
 				<label for="manual-genre">Genre</label>
-				<input id="manual-genre" type="text" list="manual-genre-suggestions" placeholder="e.g. Drama" />
-				<datalist id="manual-genre-suggestions"></datalist>
+				<div class="genre-input-wrap">
+					<input id="manual-genre" type="text" autocomplete="off" placeholder="e.g. Drama" />
+					<div id="manual-genre-suggestions-list" class="suggestions-list hidden"></div>
+				</div>
 				<label for="manual-imdb"
 					>IMDb URL <span style="text-transform: none; letter-spacing: 0">(optional)</span></label
 				>

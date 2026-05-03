@@ -214,6 +214,19 @@ def api_move_show(show_id):
     return jsonify({"ok": True})
 
 
+@app.route("/api/shows/<int:show_id>/tvdb-genres")
+def api_show_tvdb_genres(show_id):
+    conn = db.get_db()
+    row = conn.execute(
+        "SELECT tvdb_id, tvdb_type FROM shows WHERE id = ?", (show_id,)
+    ).fetchone()
+    conn.close()
+    if not row or not row["tvdb_id"]:
+        return jsonify({"genres": []})
+    genres = tvdb.fetch_genres(row["tvdb_type"], row["tvdb_id"])
+    return jsonify({"genres": genres})
+
+
 @app.route("/api/genres/<int:genre_id>", methods=["DELETE"])
 def api_delete_genre(genre_id):
     conn = db.get_db()
