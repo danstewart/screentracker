@@ -377,7 +377,7 @@ function showFlash(title, genre, showId) {
   const toast = document.createElement("div");
   toast.className = "flash-toast";
   toast.innerHTML = `
-    <span class="flash-msg">Added "<strong>${escapeHtml(title)}</strong>"${genre ? ` under "<strong>${escapeHtml(genre)}</strong>"` : ""}</span>
+    <span class="flash-msg">Added <strong>${escapeHtml(title)}</strong>${genre ? ` under <strong>${escapeHtml(genre)}</strong>` : ""}</span>
     <button class="flash-edit">Edit genre</button>
     <button class="flash-close">×</button>
   `;
