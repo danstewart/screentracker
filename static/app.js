@@ -183,10 +183,6 @@ async function openMoveModal(showId, currentTitle, currentGenre) {
 
   await loadGenres();
   modal.classList.remove("hidden");
-  setTimeout(() => {
-    genreInput.focus();
-    genreInput.select();
-  }, 50);
 
   // Fetch TVDB genre suggestions for this show (non-blocking)
   fetch(`/api/shows/${showId}/tvdb-genres`)
