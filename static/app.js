@@ -280,6 +280,9 @@ genreInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") modalConfirm.click();
 });
 
+// ---------- Filters ----------
+const filterBar = $("#filter-bar");
+
 // ---------- View tabs ----------
 const viewTabs = $$(".view-tab");
 const watchingLibrary = $("#watching-library");
@@ -295,9 +298,6 @@ function setView(view) {
 
 setView(localStorage.getItem("library-view") || "watching");
 viewTabs.forEach((tab) => tab.addEventListener("click", () => setView(tab.dataset.view)));
-
-// ---------- Filters ----------
-const filterBar = $("#filter-bar");
 
 function buildFilters(libraryEl) {
   const blocks = $$(".genre-block", libraryEl);
