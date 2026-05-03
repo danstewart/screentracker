@@ -1,0 +1,16 @@
+version: "2.4"
+
+services:
+    app:
+        build:
+            context: .
+        environment:
+            FLASK_DEBUG: ${FLASK_DEBUG:-0}
+            ENVIRONMENT: production
+        container_name: "tvshow-manager"
+        image: "tvshow-manager:latest"
+        restart: unless-stopped
+        volumes:
+            - "./db:/home/app/tvshow-manager/db"
+        ports:
+            - ${PORT:-1234}:1234
