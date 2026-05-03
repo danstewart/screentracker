@@ -1,4 +1,5 @@
 .env
 shows.db
 db/
-lib/__pycache__
+__pycache__/
+*.pyc
