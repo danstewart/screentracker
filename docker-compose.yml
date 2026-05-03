@@ -11,6 +11,6 @@ services:
         image: "tvshow-manager:latest"
         restart: unless-stopped
         volumes:
-            - "./db:/home/app/tvshow-manager/db"
+            - "./db:./db"
         ports:
             - ${PORT:-1234}:1234
