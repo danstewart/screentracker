@@ -412,6 +412,7 @@ main { padding: 32px; max-width: 1400px; margin: 0 auto; }
   transform: translateX(-50%) translateY(0);
 }
 .flash-msg { font-size: 13px; flex: 1; }
+.flash-msg strong { font-weight: 600; }
 .flash-edit {
   background: none;
   border: 1px solid var(--border);
