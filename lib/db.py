@@ -39,9 +39,13 @@ def init_db():
             FOREIGN KEY (genre_id) REFERENCES genres(id) ON DELETE SET NULL
         )
     """)
-    # Migration for existing databases
+    # Migrations for existing databases
     try:
         conn.execute("ALTER TABLE shows ADD COLUMN watched INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        conn.execute("ALTER TABLE shows ADD COLUMN watched_at TIMESTAMP")
     except sqlite3.OperationalError:
         pass
     conn.commit()
