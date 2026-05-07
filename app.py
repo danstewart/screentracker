@@ -2,6 +2,7 @@
 
 import os
 import secrets
+from datetime import datetime
 
 import requests
 from dotenv import load_dotenv
@@ -12,6 +13,17 @@ from lib import db, tvdb
 load_dotenv()
 
 app = Flask(__name__)
+
+
+@app.template_filter("watcheddate")
+def watched_date_filter(value):
+    if not value:
+        return ""
+    try:
+        dt = datetime.strptime(str(value), "%Y-%m-%d %H:%M:%S")
+        return dt.strftime("%-d %b %Y")
+    except Exception:
+        return ""
 
 AUTH_USER = os.environ.get("AUTH_USER", "admin")
 AUTH_PASSWORD = os.environ.get("AUTH_PASSWORD", "")
@@ -193,7 +205,16 @@ def api_watched_show(show_id):
     data = request.get_json(force=True)
     watched = 1 if data.get("watched") else 0
     conn = db.get_db()
-    conn.execute("UPDATE shows SET watched = ? WHERE id = ?", (watched, show_id))
+    if watched:
+        conn.execute(
+            "UPDATE shows SET watched = ?, watched_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (watched, show_id),
+        )
+    else:
+        conn.execute(
+            "UPDATE shows SET watched = ?, watched_at = NULL WHERE id = ?",
+            (watched, show_id),
+        )
     conn.commit()
     conn.close()
     return jsonify({"ok": True})

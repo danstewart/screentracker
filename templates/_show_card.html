@@ -13,6 +13,7 @@
         <p class="show-sub">
           {% if show.year %}{{ show.year }}{% endif %}
           {% if show.tvdb_type %} · {{ show.tvdb_type|capitalize }}{% endif %}
+          {% if show.watched and show.watched_at %} · Watched {{ show.watched_at|watcheddate }}{% endif %}
         </p>
       </div>
       <div class="show-menu">
