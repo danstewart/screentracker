@@ -51,6 +51,7 @@ def auth():
     if request.method == "POST":
         pin = request.form.get("pin", "")
         if secrets.compare_digest(pin, AUTH_PASSWORD):
+            session.permanent = True
             session["authenticated"] = True
             return redirect(url_for("index"))
         error = "Incorrect PIN"
