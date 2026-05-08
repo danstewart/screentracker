@@ -1,16 +1,16 @@
 {
-  "name": "ScreenTracker",
-  "short_name": "ScreenTracker",
-  "description": "Personal TV & Film Library",
-  "start_url": "/",
-  "display": "standalone",
-  "background_color": "#0d0d0d",
-  "theme_color": "#0d0d0d",
-  "icons": [
-    {
-      "src": "/static/icon-180.png",
-      "sizes": "180x180",
-      "type": "image/png"
-    }
-  ]
+	"name": "ScreenTracker",
+	"short_name": "ScreenTrack",
+	"description": "TV & Movie Watchlist",
+	"start_url": "/",
+	"display": "standalone",
+	"background_color": "#0d0d0d",
+	"theme_color": "#0d0d0d",
+	"icons": [
+		{
+			"src": "/static/icon-180.png",
+			"sizes": "180x180",
+			"type": "image/png"
+		}
+	]
 }
