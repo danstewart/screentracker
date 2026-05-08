@@ -6,13 +6,18 @@ from datetime import datetime
 
 import requests
 from dotenv import load_dotenv
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, redirect, render_template, request, session, url_for
 
 from lib import db, tvdb
 
 load_dotenv()
 
 app = Flask(__name__)
+app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Strict"
+
+AUTH_PASSWORD = os.environ.get("AUTH_PASSWORD", "")
 
 
 @app.template_filter("watcheddate")
@@ -25,24 +30,31 @@ def watched_date_filter(value):
     except Exception:
         return ""
 
-AUTH_USER = os.environ.get("AUTH_USER", "admin")
-AUTH_PASSWORD = os.environ.get("AUTH_PASSWORD", "")
-
 
 @app.before_request
 def check_auth():
     if not AUTH_PASSWORD:
         return
-    auth = request.authorization
-    if not auth or not (
-        secrets.compare_digest(auth.username, AUTH_USER)
-        and secrets.compare_digest(auth.password, AUTH_PASSWORD)
-    ):
-        return (
-            "Unauthorised",
-            401,
-            {"WWW-Authenticate": 'Basic realm="ScreenTracker"'},
-        )
+    if request.endpoint in ("auth", "static"):
+        return
+    if not session.get("authenticated"):
+        return redirect(url_for("auth"))
+
+
+@app.route("/auth", methods=["GET", "POST"])
+def auth():
+    if not AUTH_PASSWORD:
+        return redirect(url_for("index"))
+    if session.get("authenticated"):
+        return redirect(url_for("index"))
+    error = None
+    if request.method == "POST":
+        pin = request.form.get("pin", "")
+        if secrets.compare_digest(pin, AUTH_PASSWORD):
+            session["authenticated"] = True
+            return redirect(url_for("index"))
+        error = "Incorrect PIN"
+    return render_template("auth.html", error=error)
 
 
 # --- Routes -----------------------------------------------------------------
