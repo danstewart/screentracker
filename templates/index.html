@@ -35,10 +35,10 @@
 			</div>
 		</header>
 
-		{% if not tvdb_configured %}
+		{% if not tmdb_configured %}
 		<div class="warning-banner">
-			⚠️ TVDB API key not configured. Set the <code>TVDB_API_KEY</code> environment variable. Get a key free at
-			<a href="https://thetvdb.com/api-information" target="_blank">thetvdb.com/api-information</a>.
+			⚠️ TMDB is not configured. Set <code>TMDB_API_TOKEN</code> (recommended) or <code>TMDB_API_KEY</code>.
+			<a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">Get a credential from TMDB</a>.
 		</div>
 		{% endif %}
 
@@ -148,9 +148,9 @@
 					/>
 					<div id="genre-suggestions-list" class="suggestions-list hidden"></div>
 				</div>
-				<div id="tvdb-genre-suggestions" class="tvdb-suggestions hidden">
-					<p class="tvdb-suggestions-label">Suggested by TVDB:</p>
-					<div id="tvdb-suggestion-chips" class="suggestion-chips"></div>
+				<div id="tmdb-genre-suggestions" class="tmdb-suggestions hidden">
+					<p class="tmdb-suggestions-label">Suggested by TMDB:</p>
+					<div id="tmdb-suggestion-chips" class="suggestion-chips"></div>
 				</div>
 				<div class="modal-actions">
 					<button id="modal-cancel" class="btn-secondary">Cancel</button>
@@ -180,6 +180,16 @@
 				</div>
 			</div>
 		</div>
+
+		<footer class="site-footer">
+			<a href="https://www.themoviedb.org/" target="_blank" rel="noopener" aria-label="Visit The Movie Database">
+				<img
+					src="https://www.themoviedb.org/assets/2/v4/logos/v2/blue_long_2-9665a76b1ae401a510ec1e0ca40ddcb3b0cfe45f1d51b77a308fea0845885648.svg"
+					alt="The Movie Database (TMDB)"
+				/>
+			</a>
+			<p>This product uses the TMDB API but is not endorsed or certified by TMDB.</p>
+		</footer>
 
 		<!-- Show card template (used by JS) -->
 		<template id="show-card-template">

@@ -4,7 +4,7 @@ const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
 // ---------- State ----------
 let currentMoveShowId = null;
-let libraryIndex = null; // Set of "tvdb_type:tvdb_id" strings
+let libraryIndex = null; // Set of "media_type:tmdb_id" strings
 
 async function ensureLibraryIndex() {
   if (libraryIndex !== null) return;
@@ -12,7 +12,7 @@ async function ensureLibraryIndex() {
     const r = await fetch("/api/shows/in-library");
     const data = await r.json();
     libraryIndex = new Set(
-      data.shows.filter((s) => s.tvdb_id).map((s) => `${s.tvdb_type}:${s.tvdb_id}`)
+      data.shows.filter((s) => s.tmdb_id).map((s) => `${s.media_type}:${s.tmdb_id}`)
     );
   } catch (_) {
     libraryIndex = new Set();
@@ -20,7 +20,7 @@ async function ensureLibraryIndex() {
 }
 
 function inLibrary(result) {
-  return !!(libraryIndex && result.tvdb_id && libraryIndex.has(`${result.tvdb_type}:${result.tvdb_id}`));
+  return !!(libraryIndex && result.tmdb_id && libraryIndex.has(`${result.media_type}:${result.tmdb_id}`));
 }
 
 // ---------- Search ----------
@@ -86,7 +86,7 @@ function renderResult(r) {
     ? `<img src="${escapeAttr(r.poster_url)}" alt="" />`
     : `<div class="placeholder">${escapeHtml((r.title || "?")[0].toUpperCase())}</div>`;
 
-  const badge = r.tvdb_type === "movie"
+  const badge = r.media_type === "movie"
     ? `<span class="badge movie">Movie</span>`
     : `<span class="badge series">Series</span>`;
 
@@ -179,6 +179,9 @@ async function submitShow(payload) {
     return;
   }
   const data = await r.json();
+  if (!r.ok || data.error) {
+    throw new Error(data.error || `Unable to add title (${r.status})`);
+  }
   sessionStorage.setItem("flash_added", JSON.stringify({
     title: data.show.title,
     genre: data.genre_name,
@@ -210,7 +213,11 @@ function showDuplicateToast(title) {
 async function addShow(result) {
   searchResults.classList.add("hidden");
   searchInput.value = "";
-  await submitShow({ ...result, genre_name: "" });
+  try {
+    await submitShow({ ...result, genre_name: "" });
+  } catch (err) {
+    window.alert(`Could not add title: ${err.message}`);
+  }
 }
 
 async function openMoveModal(showId, currentTitle, currentGenre) {
@@ -224,20 +231,20 @@ async function openMoveModal(showId, currentTitle, currentGenre) {
 
   genreInput.value = currentGenre || "";
 
-  // Reset TVDB suggestions
-  const tvdbSection = $("#tvdb-genre-suggestions");
-  tvdbSection.classList.add("hidden");
-  $("#tvdb-suggestion-chips").innerHTML = "";
+  // Reset TMDB suggestions
+  const tmdbSection = $("#tmdb-genre-suggestions");
+  tmdbSection.classList.add("hidden");
+  $("#tmdb-suggestion-chips").innerHTML = "";
 
   await loadGenres();
   modal.classList.remove("hidden");
 
-  // Fetch TVDB genre suggestions for this show (non-blocking)
-  fetch(`/api/shows/${showId}/tvdb-genres`)
+  // Fetch TMDB genre suggestions for this show (non-blocking)
+  fetch(`/api/shows/${showId}/tmdb-genres`)
     .then((r) => r.json())
     .then((data) => {
       if (!data.genres || !data.genres.length) return;
-      const chipsEl = $("#tvdb-suggestion-chips");
+      const chipsEl = $("#tmdb-suggestion-chips");
       chipsEl.innerHTML = data.genres
         .map((g) => `<button class="genre-chip" type="button">${escapeHtml(g)}</button>`)
         .join("");
@@ -247,7 +254,7 @@ async function openMoveModal(showId, currentTitle, currentGenre) {
           genreSuggestionsList.classList.add("hidden");
         });
       });
-      tvdbSection.classList.remove("hidden");
+      tmdbSection.classList.remove("hidden");
     })
     .catch(() => {});
 }
@@ -523,16 +530,20 @@ $("#manual-confirm").addEventListener("click", async () => {
   if (!genre) { manualGenre.focus(); return; }
 
   manualModal.classList.add("hidden");
-  await submitShow({
-    title,
-    genre_name: genre,
-    imdb_url: manualImdb.value.trim(),
-    tvdb_id: "",
-    tvdb_type: "",
-    year: "",
-    overview: "",
-    poster_url: "",
-  });
+  try {
+    await submitShow({
+      title,
+      genre_name: genre,
+      imdb_url: manualImdb.value.trim(),
+      tmdb_id: "",
+      media_type: "",
+      year: "",
+      overview: "",
+      poster_url: "",
+    });
+  } catch (err) {
+    window.alert(`Could not add title: ${err.message}`);
+  }
 });
 
 manualImdb.addEventListener("keydown", (e) => {

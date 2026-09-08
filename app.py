@@ -8,9 +8,9 @@ import requests
 from dotenv import load_dotenv
 from flask import Flask, jsonify, redirect, render_template, request, session, url_for
 
-from lib import db, tvdb
-
 load_dotenv()
+
+from lib import db, tmdb
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
@@ -89,7 +89,7 @@ def index():
         watching_orphans=watching_orphans,
         watched_grouped=watched_grouped,
         watched_orphans=watched_orphans,
-        tvdb_configured=bool(tvdb.TVDB_API_KEY),
+        tmdb_configured=tmdb.is_configured(),
     )
 
 
@@ -99,19 +99,19 @@ def api_search():
     if not query:
         return jsonify({"results": []})
 
-    if not tvdb.TVDB_API_KEY:
+    if not tmdb.is_configured():
         return jsonify(
             {
-                "error": "TVDB API key not configured. Set TVDB_API_KEY environment variable."
+                "error": "TMDB is not configured. Set TMDB_API_TOKEN or TMDB_API_KEY."
             }
         ), 500
 
     try:
-        return jsonify({"results": tvdb.search(query)})
+        return jsonify({"results": tmdb.search(query)})
     except requests.HTTPError as e:
-        return jsonify({"error": f"TVDB error: {e.response.status_code}"}), 502
+        return jsonify({"error": f"TMDB error: {e.response.status_code}"}), 502
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": tmdb.safe_error(e)}), 500
 
 
 @app.route("/api/genres")
@@ -142,7 +142,7 @@ def api_create_genre():
 def api_in_library():
     conn = db.get_db()
     rows = conn.execute(
-        "SELECT tvdb_id, tvdb_type FROM shows WHERE tvdb_id != ''"
+        "SELECT tmdb_id, media_type FROM shows WHERE tmdb_id != ''"
     ).fetchall()
     conn.close()
     return jsonify({"shows": [dict(r) for r in rows]})
@@ -154,21 +154,30 @@ def api_add_show():
     genre_name = (data.get("genre_name") or "").strip()
     genre_id = data.get("genre_id")
 
-    tvdb_genres = []
-    if not genre_name and not genre_id:
-        tvdb_genres = tvdb.fetch_genres(
-            data.get("tvdb_type", "series"), data.get("tvdb_id", "")
-        )
-        if tvdb_genres:
-            # The last genre seems to be the most specific/accurate
-            genre_name = tvdb_genres[-1]
+    tmdb_id = str(data.get("tmdb_id") or "")
+    media_type = data.get("media_type") or ""
+    tmdb_genres = []
+    if tmdb_id:
+        if media_type not in ("movie", "series"):
+            return jsonify({"error": "Invalid media type"}), 400
+        try:
+            metadata = tmdb.details(media_type, tmdb_id)
+        except requests.HTTPError as exc:
+            return jsonify({"error": f"TMDB error: {exc.response.status_code}"}), 502
+        except Exception as exc:
+            return jsonify({"error": tmdb.safe_error(exc)}), 500
+        data.update(metadata)
+        tmdb_genres = metadata.get("genres") or []
+
+    if not genre_name and not genre_id and tmdb_genres:
+        # Prefer the final (usually most specific) TMDB genre.
+        genre_name = tmdb_genres[-1]
 
     conn = db.get_db()
-    tvdb_id = data.get("tvdb_id", "")
-    if tvdb_id:
+    if tmdb_id:
         dup = conn.execute(
-            "SELECT id FROM shows WHERE tvdb_id = ? AND tvdb_type = ?",
-            (tvdb_id, data.get("tvdb_type", "")),
+            "SELECT id FROM shows WHERE tmdb_id = ? AND media_type = ?",
+            (tmdb_id, media_type),
         ).fetchone()
     else:
         dup = conn.execute(
@@ -179,18 +188,18 @@ def api_add_show():
         conn.close()
         return jsonify({"error": "Already in your library"}), 409
 
-    # Seed all TVDB genres into the DB so they appear as suggestions
-    for g in tvdb_genres:
+    # Seed TMDB genres into the DB so they appear as suggestions.
+    for g in tmdb_genres:
         db.resolve_genre(conn, genre_name=g)
     genre_id = db.resolve_genre(conn, genre_name=genre_name, genre_id=genre_id)
 
     cur = conn.execute(
-        """INSERT INTO shows (tvdb_id, tvdb_type, title, year, overview,
+        """INSERT INTO shows (tmdb_id, media_type, title, year, overview,
                               poster_url, imdb_url, genre_id)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
         (
-            data.get("tvdb_id", ""),
-            data.get("tvdb_type", ""),
+            tmdb_id,
+            media_type,
             data.get("title", "Untitled"),
             data.get("year", ""),
             data.get("overview", ""),
@@ -273,16 +282,16 @@ def api_move_show(show_id):
     return jsonify({"ok": True})
 
 
-@app.route("/api/shows/<int:show_id>/tvdb-genres")
-def api_show_tvdb_genres(show_id):
+@app.route("/api/shows/<int:show_id>/tmdb-genres")
+def api_show_tmdb_genres(show_id):
     conn = db.get_db()
     row = conn.execute(
-        "SELECT tvdb_id, tvdb_type FROM shows WHERE id = ?", (show_id,)
+        "SELECT tmdb_id, media_type FROM shows WHERE id = ?", (show_id,)
     ).fetchone()
     conn.close()
-    if not row or not row["tvdb_id"]:
+    if not row or not row["tmdb_id"]:
         return jsonify({"genres": []})
-    genres = tvdb.fetch_genres(row["tvdb_type"], row["tvdb_id"])
+    genres = tmdb.fetch_genres(row["media_type"], row["tmdb_id"])
     return jsonify({"genres": genres})
 
 
@@ -298,6 +307,19 @@ def api_delete_genre(genre_id):
 
 # --- Bootstrap --------------------------------------------------------------
 db.init_db()
+if tmdb.is_configured():
+    migration = db.migrate_legacy_content(tmdb)
+    if migration["checked"]:
+        print(
+            "TMDB migration: "
+            f"{migration['migrated']}/{migration['checked']} migrated, "
+            f"{len(migration['unmatched'])} unmatched, "
+            f"{len(migration['errors'])} errors"
+        )
+        for title in migration["unmatched"]:
+            print(f"TMDB migration unmatched: {title}")
+        for error in migration["errors"]:
+            print(f"TMDB migration error: {error}")
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=1234, debug=True)

@@ -647,16 +647,36 @@ main { padding: 32px; max-width: 1400px; margin: 0 auto; }
 .suggestion-item:hover,
 .suggestion-item:active { background: var(--surface); }
 
-/* ---- TVDB genre chips ---- */
-.tvdb-suggestions {
+/* ---- TMDB genre chips ---- */
+.tmdb-suggestions {
   margin-top: 14px;
 }
-.tvdb-suggestions-label {
+.tmdb-suggestions-label {
   font-size: 11px;
   letter-spacing: 1px;
   text-transform: uppercase;
   color: var(--muted);
   margin-bottom: 8px;
+}
+
+/* ---- Attribution footer ---- */
+.site-footer {
+  max-width: 1400px;
+  margin: 8px auto 0;
+  padding: 28px 32px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  font-size: 11px;
+  text-align: center;
+}
+.site-footer img {
+  display: block;
+  width: 92px;
+  height: auto;
 }
 .suggestion-chips {
   display: flex;
@@ -685,6 +705,7 @@ main { padding: 32px; max-width: 1400px; margin: 0 auto; }
 @media (max-width: 600px) {
   .site-header { padding: 20px 16px; }
   main { padding: 20px 16px; }
+  .site-footer { padding: 24px 16px; flex-direction: column; gap: 10px; }
   .brand h1 { font-size: 32px; }
   .shows-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
 }

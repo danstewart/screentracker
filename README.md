@@ -1,12 +1,12 @@
 # ScreenTracker — TV Show & Movie Library
 
 A Flask web app for managing a personal library of TV shows and movies, with
-search powered by **TheTVDB API**. Each item is grouped into a genre (you can
+search powered by **The Movie Database (TMDB) API**. Each item is grouped into a genre (you can
 create new genres on the fly), and the library is stored locally in SQLite.
 
 ## Features
 
-- 🔍 **Live search** via TheTVDB v4 API as you type
+- 🔍 **Live search** across TMDB movies and TV series as you type
 - 🎬 **Rich previews** in search results: poster, year, network, country, overview
 - 📁 **Genre grouping** — pick an existing genre or create a new one when adding
 - 🔄 **Move shows** between genres
@@ -23,17 +23,19 @@ create new genres on the fly), and the library is stored locally in SQLite.
    pip install -r requirements.txt
    ```
 
-2. **Get a TVDB API key** (free for personal use):
+2. **Get a TMDB application credential** (free for non-commercial use):
 
-   - Sign up at https://thetvdb.com
-   - Go to https://thetvdb.com/api-information and create a project key
-   - Some keys also need a "subscriber PIN" — only set this if your key requires it
+   - Sign up at https://www.themoviedb.org
+   - Open https://www.themoviedb.org/settings/api and request API access
+   - Copy the **API Read Access Token** (recommended), or the v3 API key
 
 3. **Set the API key** as an environment variable:
 
    ```bash
-   export TVDB_API_KEY="your-api-key-here"
+   export TMDB_API_TOKEN="your-read-access-token-here"
    ```
+
+   Alternatively, set `TMDB_API_KEY` to your v3 API key.
 
 4. **Run the app:**
 
@@ -45,17 +47,18 @@ create new genres on the fly), and the library is stored locally in SQLite.
 
 ## How it works
 
-- **`app.py`** — Flask routes + TVDB API client + SQLite persistence
+- **`app.py`** — Flask routes + TMDB integration + SQLite persistence
+- **`lib/tmdb.py`** — TMDB client, response normalization, and legacy matching
 - **`templates/index.html`** — Main page rendering grouped shows
 - **`static/app.js`** — Search, modals, and card actions
 - **`static/style.css`** — Styling
-- **`shows.db`** — Auto-created SQLite database (in the project folder)
+- **`db/shows.db`** — Auto-created SQLite database (the Docker volume mount)
 
 ## API endpoints
 
 | Method | Path                              | Purpose                           |
 |--------|-----------------------------------|-----------------------------------|
-| GET    | `/api/search?q=...`               | Search TVDB                       |
+| GET    | `/api/search?q=...`               | Search TMDB                       |
 | GET    | `/api/genres`                     | List genres                       |
 | POST   | `/api/genres`                     | Create a genre                    |
 | DELETE | `/api/genres/<id>`                | Delete a genre (shows un-grouped) |
@@ -63,10 +66,27 @@ create new genres on the fly), and the library is stored locally in SQLite.
 | PUT    | `/api/shows/<id>/genre`           | Move a show to another genre      |
 | DELETE | `/api/shows/<id>`                 | Remove a show                     |
 
+## Migrating an existing TVDB-backed library
+
+On startup, ScreenTracker adds the new `tmdb_id` and `media_type` columns without
+removing any existing data. When a TMDB credential is configured, legacy rows are
+migrated automatically:
+
+1. TV series are matched directly using their TVDB ID.
+2. Movies, manually added IMDb links, and unmatched series are matched by IMDb ID.
+3. A strict title/year match is used as a final fallback.
+
+Matched rows receive their TMDB ID and refreshed title, year, overview, poster,
+IMDb link, and genre suggestions. Genre assignments, watched state, and timestamps
+are preserved. Rows that cannot be matched confidently are left untouched and are
+retried on the next startup. The startup log reports migrated, unmatched, and error
+counts. Keep a normal backup of the Docker volume before deploying schema changes.
+The same migration can be run explicitly with `python migrate_tmdb.py` (or
+`docker compose exec app python migrate_tmdb.py` after deployment).
+
 ## Notes
 
-- TVDB tokens are cached in memory for 25 days. The app refreshes
-  automatically.
-- The TVDB v4 search returns mixed types — this app filters to series and
-  movies only.
-- IMDb URLs come from TVDB's `remote_ids` when available.
+- TMDB multi-search returns people as well as titles; the app filters results to
+  series and movies only.
+- Metadata is refreshed from TMDB when a search result is added.
+- TMDB data and images are attributed in the application footer as required.
