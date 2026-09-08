@@ -51,23 +51,19 @@
 			<div id="filter-bar" class="filter-bar hidden">
 				<div class="filter-group" id="type-filter-group">
 					<span class="filter-label">Type</span>
-					<label class="filter-chip active">
-						<input type="checkbox" class="type-filter" value="series" checked />TV Shows
+					<label class="filter-chip">
+						<input type="checkbox" class="type-filter" value="series" />TV Shows
 					</label>
-					<label class="filter-chip active">
-						<input type="checkbox" class="type-filter" value="movie" checked />Movies
+					<label class="filter-chip">
+						<input type="checkbox" class="type-filter" value="movie" />Movies
 					</label>
 				</div>
 				<div class="filter-group" id="genre-filter-group">
 					<span class="filter-label">Genre</span>
 				</div>
-				<div class="filter-group">
+				<div class="filter-group filter-group--title">
 					<span class="filter-label">Title</span>
 					<input id="title-filter" class="filter-input" type="text" placeholder="Filter…" autocomplete="off" />
-				</div>
-				<div class="filter-group">
-					<span class="filter-label">Year</span>
-					<input id="year-filter" class="filter-input filter-input--narrow" type="text" placeholder="e.g. 2023" autocomplete="off" />
 				</div>
 				<div class="filter-group">
 					<span class="filter-label">Sort</span>
@@ -91,7 +87,12 @@
 				{% endif %} {% for block in watching_grouped %}
 				<section class="genre-block" data-genre-id="{{ block.genre.id }}">
 					<header class="genre-header">
-						<h2>{{ block.genre.name }}</h2>
+						<h2>
+							<button class="genre-toggle" type="button" aria-expanded="true">
+								<span class="genre-toggle-icon" aria-hidden="true">▾</span>
+								<span class="genre-name">{{ block.genre.name }}</span>
+							</button>
+						</h2>
 					</header>
 					<div class="shows-grid">
 						{% for show in block.shows %}{% include "_show_card.html" %}{% endfor %}
@@ -99,7 +100,14 @@
 				</section>
 				{% endfor %} {% if watching_orphans %}
 				<section class="genre-block orphan-block">
-					<header class="genre-header"><h2>Uncategorised</h2></header>
+					<header class="genre-header">
+						<h2>
+							<button class="genre-toggle" type="button" aria-expanded="true">
+								<span class="genre-toggle-icon" aria-hidden="true">▾</span>
+								<span class="genre-name">Uncategorised</span>
+							</button>
+						</h2>
+					</header>
 					<div class="shows-grid">
 						{% for show in watching_orphans %}{% include "_show_card.html" %}{% endfor %}
 					</div>
@@ -116,7 +124,12 @@
 				{% endif %} {% for block in watched_grouped %}
 				<section class="genre-block" data-genre-id="{{ block.genre.id }}">
 					<header class="genre-header">
-						<h2>{{ block.genre.name }}</h2>
+						<h2>
+							<button class="genre-toggle" type="button" aria-expanded="true">
+								<span class="genre-toggle-icon" aria-hidden="true">▾</span>
+								<span class="genre-name">{{ block.genre.name }}</span>
+							</button>
+						</h2>
 					</header>
 					<div class="shows-grid">
 						{% for show in block.shows %}{% include "_show_card.html" %}{% endfor %}
@@ -124,7 +137,14 @@
 				</section>
 				{% endfor %} {% if watched_orphans %}
 				<section class="genre-block orphan-block">
-					<header class="genre-header"><h2>Uncategorised</h2></header>
+					<header class="genre-header">
+						<h2>
+							<button class="genre-toggle" type="button" aria-expanded="true">
+								<span class="genre-toggle-icon" aria-hidden="true">▾</span>
+								<span class="genre-name">Uncategorised</span>
+							</button>
+						</h2>
+					</header>
 					<div class="shows-grid">
 						{% for show in watched_orphans %}{% include "_show_card.html" %}{% endfor %}
 					</div>

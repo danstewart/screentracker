@@ -320,11 +320,11 @@ function buildFilters(libraryEl) {
   blocks.forEach((block) => {
     const isOrphan = block.classList.contains("orphan-block");
     const key = isOrphan ? "orphan" : (block.dataset.genreId || "orphan");
-    const name = $(".genre-header h2", block).textContent;
+    const name = $(".genre-name", block).textContent;
 
     const label = document.createElement("label");
-    label.className = "filter-chip active";
-    label.innerHTML = `<input type="checkbox" class="genre-filter" value="${escapeAttr(key)}" checked />${escapeHtml(name)}`;
+    label.className = "filter-chip";
+    label.innerHTML = `<input type="checkbox" class="genre-filter" value="${escapeAttr(key)}" />${escapeHtml(name)}`;
     label.querySelector("input").addEventListener("change", (e) => {
       label.classList.toggle("active", e.target.checked);
       applyFilters(libraryEl);
@@ -332,15 +332,14 @@ function buildFilters(libraryEl) {
     filterGroup.appendChild(label);
   });
 
-  // Reset type chips to checked when switching views
+  // No selected type means all types when switching views.
   $$(".type-filter").forEach((input) => {
-    input.checked = true;
-    input.closest(".filter-chip").classList.add("active");
+    input.checked = false;
+    input.closest(".filter-chip").classList.remove("active");
   });
 
-  // Reset text inputs when switching views
+  // Reset title filtering when switching views.
   $("#title-filter").value = "";
-  $("#year-filter").value = "";
 
   // Wire up type filters for this view
   $$(".type-filter").forEach((input) => {
@@ -364,22 +363,19 @@ function applyFilters(libraryEl) {
   const activeTypes = new Set($$(".type-filter:checked").map((el) => el.value));
   const activeGenres = new Set($$(".genre-filter:checked").map((el) => el.value));
   const titleQ = $("#title-filter").value.trim().toLowerCase();
-  const yearQ = $("#year-filter").value.trim();
 
   $$(".genre-block", libraryEl).forEach((block) => {
     const isOrphan = block.classList.contains("orphan-block");
     const key = isOrphan ? "orphan" : (block.dataset.genreId || "orphan");
-    const genreActive = activeGenres.has(key);
+    const genreActive = activeGenres.size === 0 || activeGenres.has(key);
 
     let anyVisible = false;
     $$(".show-card", block).forEach((card) => {
       const type = card.dataset.type;
-      const typeActive = !type || activeTypes.has(type);
+      const typeActive = activeTypes.size === 0 || !type || activeTypes.has(type);
       const title = $(".show-title", card).textContent.toLowerCase();
-      const year = card.dataset.year || "";
       const visible = genreActive && typeActive
-        && (!titleQ || title.includes(titleQ))
-        && (!yearQ || year.startsWith(yearQ));
+        && (!titleQ || title.includes(titleQ));
       card.classList.toggle("filtered-out", !visible);
       if (visible) anyVisible = true;
     });
@@ -419,7 +415,6 @@ function sortShows(libraryEl) {
 }
 
 $("#title-filter").addEventListener("input", () => applyFilters(currentLibrary()));
-$("#year-filter").addEventListener("input", () => applyFilters(currentLibrary()));
 $("#sort-select").addEventListener("change", () => {
   applyFilters(currentLibrary());
 });
@@ -434,6 +429,15 @@ function closeAllMenus() {
 
 // ---------- Card actions (event delegation) ----------
 document.addEventListener("click", async (e) => {
+  // Expand / collapse a genre section.
+  const genreToggle = e.target.closest(".genre-toggle");
+  if (genreToggle) {
+    const section = genreToggle.closest(".genre-block");
+    const collapsed = section.classList.toggle("collapsed");
+    genreToggle.setAttribute("aria-expanded", String(!collapsed));
+    return;
+  }
+
   // Toggle overflow menu
   if (e.target.classList.contains("show-menu-btn")) {
     const dropdown = e.target.nextElementSibling;
@@ -491,7 +495,7 @@ document.addEventListener("click", async (e) => {
     const title = $(".show-title", card).textContent;
     const section = card.closest(".genre-block");
     const currentGenre = section && !section.classList.contains("orphan-block")
-      ? $(".genre-header h2", section).textContent
+      ? $(".genre-name", section).textContent
       : "";
     openMoveModal(id, title, currentGenre);
     return;

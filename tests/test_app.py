@@ -79,6 +79,16 @@ class AppTests(unittest.TestCase):
         self.assertIn(b"This product uses the TMDB API", response.data)
         self.assertIn(b"The Movie Database (TMDB)", response.data)
 
+    def test_filter_chips_are_inactive_by_default(self):
+        response = self.client.get("/")
+
+        self.assertIn(b'class="filter-chip">', response.data)
+        self.assertNotIn(b'class="filter-chip active">', response.data)
+        self.assertNotIn(b'class="type-filter" value="series" checked', response.data)
+        self.assertNotIn(b'class="type-filter" value="movie" checked', response.data)
+        self.assertNotIn(b'id="year-filter"', response.data)
+        self.assertIn(b'filter-group filter-group--title', response.data)
+
     @patch("app.tmdb.details")
     def test_overflow_menu_links_to_tmdb_and_imdb(self, details):
         details.return_value = {
@@ -100,6 +110,8 @@ class AppTests(unittest.TestCase):
 
         self.assertIn(b'href="https://www.themoviedb.org/movie/278"', response.data)
         self.assertIn(b'href="https://www.imdb.com/title/tt0111161/"', response.data)
+        self.assertIn(b'class="genre-toggle"', response.data)
+        self.assertIn(b'aria-expanded="true"', response.data)
 
 
 if __name__ == "__main__":
