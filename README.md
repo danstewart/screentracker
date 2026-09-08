@@ -45,10 +45,17 @@ create new genres on the fly), and the library is stored locally in SQLite.
 
    Then open http://localhost:1234 in your browser.
 
+## Deploy
+
+```
+git pull
+docker compose -f docker-compose.yml up -d --build
+```
+
 ## How it works
 
 - **`app.py`** — Flask routes + TMDB integration + SQLite persistence
-- **`lib/tmdb.py`** — TMDB client, response normalization, and legacy matching
+- **`lib/tmdb.py`** — TMDB client and response normalization
 - **`templates/index.html`** — Main page rendering grouped shows
 - **`static/app.js`** — Search, modals, and card actions
 - **`static/style.css`** — Styling
@@ -65,24 +72,6 @@ create new genres on the fly), and the library is stored locally in SQLite.
 | POST   | `/api/shows`                      | Add a show (creates genre if new) |
 | PUT    | `/api/shows/<id>/genre`           | Move a show to another genre      |
 | DELETE | `/api/shows/<id>`                 | Remove a show                     |
-
-## Migrating an existing TVDB-backed library
-
-On startup, ScreenTracker adds the new `tmdb_id` and `media_type` columns without
-removing any existing data. When a TMDB credential is configured, legacy rows are
-migrated automatically:
-
-1. TV series are matched directly using their TVDB ID.
-2. Movies, manually added IMDb links, and unmatched series are matched by IMDb ID.
-3. A strict title/year match is used as a final fallback.
-
-Matched rows receive their TMDB ID and refreshed title, year, overview, poster,
-IMDb link, and genre suggestions. Genre assignments, watched state, and timestamps
-are preserved. Rows that cannot be matched confidently are left untouched and are
-retried on the next startup. The startup log reports migrated, unmatched, and error
-counts. Keep a normal backup of the Docker volume before deploying schema changes.
-The same migration can be run explicitly with `python migrate_tmdb.py` (or
-`docker compose exec app python migrate_tmdb.py` after deployment).
 
 ## Notes
 

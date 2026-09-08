@@ -307,19 +307,6 @@ def api_delete_genre(genre_id):
 
 # --- Bootstrap --------------------------------------------------------------
 db.init_db()
-if tmdb.is_configured():
-    migration = db.migrate_legacy_content(tmdb)
-    if migration["checked"]:
-        print(
-            "TMDB migration: "
-            f"{migration['migrated']}/{migration['checked']} migrated, "
-            f"{len(migration['unmatched'])} unmatched, "
-            f"{len(migration['errors'])} errors"
-        )
-        for title in migration["unmatched"]:
-            print(f"TMDB migration unmatched: {title}")
-        for error in migration["errors"]:
-            print(f"TMDB migration error: {error}")
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=1234, debug=True)

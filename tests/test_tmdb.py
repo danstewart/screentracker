@@ -68,40 +68,6 @@ class TMDBClientTests(unittest.TestCase):
         self.assertEqual(result["network"], "AMC")
         self.assertEqual(result["imdb_url"], "https://www.imdb.com/title/tt0903747/")
 
-    @patch("lib.tmdb.tmdb_get")
-    def test_legacy_series_prefers_direct_tvdb_lookup(self, get):
-        get.return_value = {
-            "tv_results": [
-                {"id": 1396, "name": "Breaking Bad", "first_air_date": "2008-01-20"}
-            ]
-        }
-
-        result = tmdb.find_legacy_match("81189", "series", "Breaking Bad", "2008")
-
-        self.assertEqual(result, {"tmdb_id": "1396", "media_type": "series"})
-        self.assertEqual(get.call_args.args[0], "/find/81189")
-        self.assertEqual(get.call_args.kwargs["params"]["external_source"], "tvdb_id")
-
-    @patch("lib.tmdb.tmdb_get")
-    def test_manual_imdb_link_can_determine_movie_type(self, get):
-        get.return_value = {"movie_results": [{"id": 278, "title": "The Shawshank Redemption"}]}
-
-        result = tmdb.find_legacy_match(
-            "", "", "The Shawshank Redemption", imdb_url="https://www.imdb.com/title/tt0111161/"
-        )
-
-        self.assertEqual(result, {"tmdb_id": "278", "media_type": "movie"})
-
-    @patch("lib.tmdb.tmdb_get")
-    def test_title_fallback_rejects_inexact_match(self, get):
-        get.return_value = {
-            "results": [{"id": 10, "title": "A Different Film", "release_date": "2020-01-01"}]
-        }
-
-        result = tmdb.find_legacy_match("123", "movie", "Expected Film", "2020")
-
-        self.assertIsNone(result)
-
     def test_error_message_redacts_v3_api_key(self):
         error = RuntimeError(
             "request failed: https://api.themoviedb.org/3/movie/1?api_key=secret&language=en"
