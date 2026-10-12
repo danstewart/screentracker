@@ -19,7 +19,7 @@
       <div class="show-menu">
         <button class="show-menu-btn" data-show-id="{{ show.id }}" title="Actions">⋯</button>
         <div class="show-menu-dropdown hidden">
-          {% if show.tmdb_id and show.media_type %}
+          {% if show.tmdb_id and show.media_type and show.media_type != 'game' %}
             <a class="menu-item show-tmdb" href="https://www.themoviedb.org/{{ 'movie' if show.media_type == 'movie' else 'tv' }}/{{ show.tmdb_id }}" target="_blank" rel="noopener">TMDB</a>
           {% endif %}
           {% if show.imdb_url %}

@@ -86,9 +86,9 @@ function renderResult(r) {
     ? `<img src="${escapeAttr(r.poster_url)}" alt="" />`
     : `<div class="placeholder">${escapeHtml((r.title || "?")[0].toUpperCase())}</div>`;
 
-  const badge = r.media_type === "movie"
-    ? `<span class="badge movie">Movie</span>`
-    : `<span class="badge series">Series</span>`;
+  const badgeLabels = { movie: ["movie", "Movie"], series: ["series", "Series"], game: ["game", "Game"] };
+  const [badgeClass, badgeLabel] = badgeLabels[r.media_type] || ["series", "Title"];
+  const badge = `<span class="badge ${badgeClass}">${badgeLabel}</span>`;
 
   const metaParts = [];
   if (r.year) metaParts.push(r.year);

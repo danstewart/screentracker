@@ -1,4 +1,4 @@
-"""TV Show & Movie Manager - Flask app"""
+"""TV Show, Movie & Game Manager - Flask app"""
 
 import os
 import secrets
@@ -10,7 +10,7 @@ from flask import Flask, jsonify, redirect, render_template, request, session, u
 
 load_dotenv()
 
-from lib import db, tmdb
+from lib import db, igdb, tmdb
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
@@ -90,6 +90,7 @@ def index():
         watched_grouped=watched_grouped,
         watched_orphans=watched_orphans,
         tmdb_configured=tmdb.is_configured(),
+        igdb_configured=igdb.is_configured(),
     )
 
 
@@ -106,12 +107,34 @@ def api_search():
             }
         ), 500
 
+    # Movies and TV come from TMDB, games from IGDB. One source being down
+    # must not hide the other's results, so failures are collected rather
+    # than returned immediately.
+    results = []
+    errors = []
+
     try:
-        return jsonify({"results": tmdb.search(query)})
+        results.extend(tmdb.search(query))
     except requests.HTTPError as e:
-        return jsonify({"error": f"TMDB error: {e.response.status_code}"}), 502
+        errors.append(f"TMDB error: {e.response.status_code}")
     except Exception as e:
-        return jsonify({"error": tmdb.safe_error(e)}), 500
+        errors.append(tmdb.safe_error(e))
+
+    if igdb.is_configured():
+        try:
+            results.extend(igdb.search(query))
+        except requests.HTTPError as e:
+            errors.append(f"IGDB error: {e.response.status_code}")
+        except Exception as e:
+            errors.append(igdb.safe_error(e))
+
+    if not results and errors:
+        return jsonify({"error": "; ".join(errors)}), 502
+
+    payload = {"results": results}
+    if errors:
+        payload["errors"] = errors
+    return jsonify(payload)
 
 
 @app.route("/api/genres")
@@ -156,22 +179,30 @@ def api_add_show():
 
     tmdb_id = str(data.get("tmdb_id") or "")
     media_type = data.get("media_type") or ""
-    tmdb_genres = []
+    source_genres = []
     if tmdb_id:
-        if media_type not in ("movie", "series"):
+        if media_type not in ("movie", "series", "game"):
             return jsonify({"error": "Invalid media type"}), 400
+        is_game = media_type == "game"
+        source, client = ("IGDB", igdb) if is_game else ("TMDB", tmdb)
         try:
-            metadata = tmdb.details(media_type, tmdb_id)
+            if is_game:
+                metadata = igdb.details(tmdb_id)
+            else:
+                metadata = tmdb.details(media_type, tmdb_id)
         except requests.HTTPError as exc:
-            return jsonify({"error": f"TMDB error: {exc.response.status_code}"}), 502
+            status = exc.response.status_code
+            return jsonify({"error": f"{source} error: {status}"}), 502
         except Exception as exc:
-            return jsonify({"error": tmdb.safe_error(exc)}), 500
+            return jsonify({"error": client.safe_error(exc)}), 500
         data.update(metadata)
-        tmdb_genres = metadata.get("genres") or []
+        source_genres = metadata.get("genres") or []
 
-    if not genre_name and not genre_id and tmdb_genres:
-        # Prefer the final (usually most specific) TMDB genre.
-        genre_name = tmdb_genres[-1]
+    if not genre_name and not genre_id and source_genres:
+        # TMDB orders genres from broadest to most specific, so the last is the
+        # best default. IGDB returns genres in id order instead, where the
+        # first is the most defining one.
+        genre_name = source_genres[0] if media_type == "game" else source_genres[-1]
 
     conn = db.get_db()
     if tmdb_id:
@@ -188,8 +219,8 @@ def api_add_show():
         conn.close()
         return jsonify({"error": "Already in your library"}), 409
 
-    # Seed TMDB genres into the DB so they appear as suggestions.
-    for g in tmdb_genres:
+    # Seed source genres into the DB so they appear as suggestions.
+    for g in source_genres:
         db.resolve_genre(conn, genre_name=g)
     genre_id = db.resolve_genre(conn, genre_name=genre_name, genre_id=genre_id)
 
@@ -291,7 +322,10 @@ def api_show_tmdb_genres(show_id):
     conn.close()
     if not row or not row["tmdb_id"]:
         return jsonify({"genres": []})
-    genres = tmdb.fetch_genres(row["media_type"], row["tmdb_id"])
+    if row["media_type"] == "game":
+        genres = igdb.fetch_genres(row["tmdb_id"])
+    else:
+        genres = tmdb.fetch_genres(row["media_type"], row["tmdb_id"])
     return jsonify({"genres": genres})
 
 

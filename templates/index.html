@@ -25,11 +25,11 @@
 		<header class="site-header">
 			<div class="brand">
 				<h1>SCREEN<span>TRACKER</span></h1>
-				<p>Personal TV &amp; Film Library</p>
+				<p>Personal TV, Film &amp; Game Library</p>
 			</div>
 
 			<div class="search-wrap">
-				<input id="search-input" type="text" placeholder="Search for a show or movie…" autocomplete="off" />
+				<input id="search-input" type="text" placeholder="Search for a show, movie or game…" autocomplete="off" />
 				<div id="search-results" class="search-results hidden"></div>
 				<button id="add-manual-btn" class="btn-secondary">Add manually</button>
 			</div>
@@ -39,6 +39,14 @@
 		<div class="warning-banner">
 			⚠️ TMDB is not configured. Set <code>TMDB_API_TOKEN</code> (recommended) or <code>TMDB_API_KEY</code>.
 			<a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">Get a credential from TMDB</a>.
+		</div>
+		{% endif %}
+
+		{% if not igdb_configured %}
+		<div class="warning-banner">
+			🎮 IGDB is not configured, so game search is skipped. Set <code>IGDB_CLIENT_ID</code> and
+			<code>IGDB_CLIENT_SECRET</code>.
+			<a href="https://dev.twitch.tv/console/apps" target="_blank" rel="noopener">Create a Twitch application</a>.
 		</div>
 		{% endif %}
 
@@ -56,6 +64,9 @@
 					</label>
 					<label class="filter-chip">
 						<input type="checkbox" class="type-filter" value="movie" />Movies
+					</label>
+					<label class="filter-chip">
+						<input type="checkbox" class="type-filter" value="game" />Games
 					</label>
 				</div>
 				<div class="filter-group" id="genre-filter-group">
@@ -209,6 +220,10 @@
 				/>
 			</a>
 			<p>This product uses the TMDB API but is not endorsed or certified by TMDB.</p>
+			<p>
+				Powered by <a href="https://www.igdb.com/" target="_blank" rel="noopener">IGDB</a>
+				— this product is not endorsed or certified by IGDB or Twitch.
+			</p>
 		</footer>
 
 		<!-- Show card template (used by JS) -->

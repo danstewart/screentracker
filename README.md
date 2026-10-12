@@ -1,13 +1,15 @@
-# ScreenTracker — TV Show & Movie Library
+# ScreenTracker — TV, Film & Game Library
 
-A Flask web app for managing a personal library of TV shows and movies, with
-search powered by **The Movie Database (TMDB) API**. Each item is grouped into a genre (you can
-create new genres on the fly), and the library is stored locally in SQLite.
+A Flask web app for managing a personal library of TV shows, movies and video
+games, with search powered by **The Movie Database (TMDB)** and **IGDB**.
+Each item is grouped into a genre (you can create new genres on the fly), and
+the library is stored locally in SQLite.
 
 ## Features
 
-- 🔍 **Live search** across TMDB movies and TV series as you type
+- 🔍 **Live search** across TMDB movies and TV series plus IGDB games as you type
 - 🎬 **Rich previews** in search results: poster, year, network, country, overview
+- 🎮 **Game support** with cover art, developer, release year and genre, alongside TV and film
 - 📁 **Genre grouping** — pick an existing genre or create a new one when adding
 - 🔄 **Move shows** between genres
 - 🗑️ **Delete** shows or whole genres
@@ -37,7 +39,27 @@ create new genres on the fly), and the library is stored locally in SQLite.
 
    Alternatively, set `TMDB_API_KEY` to your v3 API key.
 
-4. **Run the app:**
+4. **Get IGDB credentials** (optional, free for non-commercial use) to search games:
+
+   - Sign up for a Twitch account with 2FA enabled
+   - Create an application at https://dev.twitch.tv/console/apps
+     - **OAuth Redirect URL:** any value, e.g. `http://localhost:1234` — IGDB
+       uses the server-to-server `client_credentials` grant, so this is never used
+     - **Category:** Application Integration
+     - **Client Type:** Confidential (required to generate a Client Secret)
+   - Generate a Client Secret and copy the Client ID
+
+5. **Set the IGDB credentials:**
+
+   ```bash
+   export IGDB_CLIENT_ID="your-client-id"
+   export IGDB_CLIENT_SECRET="your-client-secret"
+   ```
+
+   Without these, search silently skips games and returns TV/film results only.
+   Add them to `.env` to persist across restarts (the app calls `load_dotenv()`).
+
+6. **Run the app:**
 
    ```bash
    python app.py
@@ -54,28 +76,39 @@ docker compose -f docker-compose.yml up -d --build
 
 ## How it works
 
-- **`app.py`** — Flask routes + TMDB integration + SQLite persistence
+- **`app.py`** — Flask routes + TMDB/IGDB integration + SQLite persistence
 - **`lib/tmdb.py`** — TMDB client and response normalization
-- **`templates/index.html`** — Main page rendering grouped shows
+- **`lib/igdb.py`** — IGDB client, Twitch app-token caching and normalization
+- **`templates/index.html`** — Main page rendering grouped titles
 - **`static/app.js`** — Search, modals, and card actions
 - **`static/style.css`** — Styling
 - **`db/shows.db`** — Auto-created SQLite database (the Docker volume mount)
 
 ## API endpoints
 
-| Method | Path                              | Purpose                           |
-|--------|-----------------------------------|-----------------------------------|
-| GET    | `/api/search?q=...`               | Search TMDB                       |
-| GET    | `/api/genres`                     | List genres                       |
-| POST   | `/api/genres`                     | Create a genre                    |
-| DELETE | `/api/genres/<id>`                | Delete a genre (shows un-grouped) |
-| POST   | `/api/shows`                      | Add a show (creates genre if new) |
-| PUT    | `/api/shows/<id>/genre`           | Move a show to another genre      |
-| DELETE | `/api/shows/<id>`                 | Remove a show                     |
+| Method | Path                    | Purpose                             |
+|--------|-------------------------|-------------------------------------|
+| GET    | `/api/search?q=...`     | Search TMDB and IGDB together       |
+| GET    | `/api/genres`           | List genres                         |
+| POST   | `/api/genres`           | Create a genre                      |
+| DELETE | `/api/genres/<id>`      | Delete a genre (shows un-grouped)   |
+| POST   | `/api/shows`            | Add a title (creates genre if new)  |
+| PUT    | `/api/shows/<id>/genre` | Move a title to another genre       |
+| DELETE | `/api/shows/<id>`       | Remove a title                      |
 
 ## Notes
 
 - TMDB multi-search returns people as well as titles; the app filters results to
   series and movies only.
-- Metadata is refreshed from TMDB when a search result is added.
-- TMDB data and images are attributed in the application footer as required.
+- The two sources are searched independently, so one being down still returns
+  the other's results. Partial failures are reported under an `errors` key.
+- IGDB is queried with `game_type = (0,4,8,9,10,11,12)` and
+  `version_parent = null`, which keeps main games, remakes, remasters and ports
+  while dropping DLC, expansions, bundles, mods, packs and store editions.
+- IGDB retired the `status` and `category` game fields, so the release status is
+  derived from `first_release_date` (`Released` / `Upcoming`).
+- IGDB provides no IMDb id and no country of origin, so those fields stay empty
+  for games and the card's IMDb link is omitted.
+- Metadata is refreshed from TMDB/IGDB when a search result is added.
+- TMDB and IGDB data and images are attributed in the application footer as
+  required.
