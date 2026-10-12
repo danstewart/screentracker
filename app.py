@@ -1,6 +1,8 @@
 """TV Show, Movie, Game & Video Manager - Flask app"""
 
+import difflib
 import os
+import re
 import secrets
 from datetime import datetime
 
@@ -141,6 +143,29 @@ def index():
     )
 
 
+def _fold(value):
+    """Casefold a title and reduce punctuation to word separators."""
+    return re.sub(r"[^a-z0-9 ]+", " ", str(value or "").casefold()).strip()
+
+
+def _match_score(query, title):
+    """Score how closely a title matches the query, from 0 (unrelated) to 1."""
+    q = _fold(query)
+    t = _fold(title)
+    if not q or not t:
+        return 0.0
+    if t == q:
+        return 1.0
+    ratio = difflib.SequenceMatcher(None, q, t).ratio()
+    if t.startswith(f"{q} "):
+        return 0.7 + ratio * 0.3
+    if f" {q} " in f" {t} ":
+        return 0.6 + ratio * 0.3
+    if q in t:
+        return 0.5 + ratio * 0.3
+    return ratio * 0.5
+
+
 @app.route("/api/search")
 def api_search():
     query = request.args.get("q", "").strip()
@@ -174,6 +199,14 @@ def api_search():
             errors.append(f"IGDB error: {e.response.status_code}")
         except Exception as e:
             errors.append(igdb.safe_error(e))
+
+    # TMDB and IGDB each return their own relevance order, but concatenating
+    # them puts every film and series ahead of every game. Re-rank the merged
+    # list by title closeness so the best match leads, whatever its source.
+    # Python's sort is stable, so equal scores keep each source's own order.
+    results.sort(
+        key=lambda result: _match_score(query, result.get("title")), reverse=True
+    )
 
     if not results and errors:
         return jsonify({"error": "; ".join(errors)}), 502

@@ -145,6 +145,29 @@ class AppTests(unittest.TestCase):
 
     @patch("app.igdb.search")
     @patch("app.tmdb.search")
+    @patch("app.igdb.is_configured", return_value=True)
+    @patch("app.tmdb.is_configured", return_value=True)
+    def test_search_ranks_games_among_films_by_title_closeness(
+        self, _tmdb_configured, _igdb_configured, tmdb_search, igdb_search
+    ):
+        tmdb_search.return_value = [
+            {"tmdb_id": "1", "media_type": "series", "title": "Halo: The Series"},
+            {"tmdb_id": "2", "media_type": "movie", "title": "Combat Evolved"},
+        ]
+        igdb_search.return_value = [
+            {"tmdb_id": "3", "media_type": "game", "title": "Halo Infinite"},
+            {"tmdb_id": "4", "media_type": "game", "title": "Halo"},
+        ]
+
+        response = self.client.get("/api/search?q=halo")
+
+        self.assertEqual(
+            [item["title"] for item in response.json["results"]],
+            ["Halo", "Halo Infinite", "Halo: The Series", "Combat Evolved"],
+        )
+
+    @patch("app.igdb.search")
+    @patch("app.tmdb.search")
     @patch("app.igdb.is_configured", return_value=False)
     @patch("app.tmdb.is_configured", return_value=True)
     def test_search_skips_igdb_when_unconfigured(
