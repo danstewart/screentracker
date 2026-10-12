@@ -175,7 +175,8 @@ async function submitShow(payload) {
     body: JSON.stringify(payload),
   });
   if (r.status === 409) {
-    showDuplicateToast(payload.title);
+    // A YouTube payload carries no title until the API returns one.
+    showDuplicateToast(payload.title || payload.youtube_url || "This title");
     return;
   }
   const data = await r.json();
@@ -186,6 +187,7 @@ async function submitShow(payload) {
     title: data.show.title,
     genre: data.genre_name,
     showId: data.show.id,
+    mediaType: data.show.media_type,
   }));
   location.reload();
 }
@@ -318,6 +320,8 @@ function buildFilters(libraryEl) {
   // Reset genre chips
   filterGroup.innerHTML = '<span class="filter-label">Genre</span>';
   blocks.forEach((block) => {
+    // YouTube has its own section, so it never becomes a genre chip.
+    if (block.classList.contains("youtube-block")) return;
     const isOrphan = block.classList.contains("orphan-block");
     const key = isOrphan ? "orphan" : (block.dataset.genreId || "orphan");
     const name = $(".genre-name", block).textContent;
@@ -365,9 +369,11 @@ function applyFilters(libraryEl) {
   const titleQ = $("#title-filter").value.trim().toLowerCase();
 
   $$(".genre-block", libraryEl).forEach((block) => {
+    const isYoutube = block.classList.contains("youtube-block");
     const isOrphan = block.classList.contains("orphan-block");
     const key = isOrphan ? "orphan" : (block.dataset.genreId || "orphan");
-    const genreActive = activeGenres.size === 0 || activeGenres.has(key);
+    // The YouTube section is not a genre, so the genre filter never hides it.
+    const genreActive = isYoutube || activeGenres.size === 0 || activeGenres.has(key);
 
     let anyVisible = false;
     $$(".show-card", block).forEach((card) => {
@@ -508,14 +514,36 @@ const manualModal = $("#manual-modal");
 const manualTitle = $("#manual-title");
 const manualGenre = $("#manual-genre");
 const manualImdb = $("#manual-imdb");
+const manualYoutube = $("#manual-youtube");
 const manualGenreSuggestionsList = $("#manual-genre-suggestions-list");
+const manualTabs = $$(".modal-tab");
+
+let manualTab = "title";
 
 bindSuggestions(manualGenre, manualGenreSuggestionsList);
+
+function setManualTab(name) {
+  manualTab = name;
+  manualTabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.tab === name));
+  $$(".manual-panel").forEach((panel) =>
+    panel.classList.toggle("hidden", panel.dataset.panel !== name)
+  );
+}
+
+manualTabs.forEach((tab) =>
+  tab.addEventListener("click", () => {
+    setManualTab(tab.dataset.tab);
+    const field = manualTab === "youtube" ? manualYoutube : manualTitle;
+    setTimeout(() => field.focus(), 50);
+  })
+);
 
 async function openManualModal() {
   manualTitle.value = "";
   manualGenre.value = "";
   manualImdb.value = "";
+  manualYoutube.value = "";
+  setManualTab("title");
   await loadGenres();
   manualModal.classList.remove("hidden");
   setTimeout(() => manualTitle.focus(), 50);
@@ -528,6 +556,23 @@ manualModal.addEventListener("click", (e) => {
 });
 
 $("#manual-confirm").addEventListener("click", async () => {
+  // The YouTube tab only needs a URL: title, channel and thumbnail come from
+  // the API, and videos are deliberately not given a genre.
+  if (manualTab === "youtube") {
+    const url = manualYoutube.value.trim();
+    if (!url) {
+      manualYoutube.focus();
+      return;
+    }
+    manualModal.classList.add("hidden");
+    try {
+      await submitShow({ media_type: "youtube", youtube_url: url });
+    } catch (err) {
+      window.alert(`Could not add video: ${err.message}`);
+    }
+    return;
+  }
+
   const title = manualTitle.value.trim();
   const genre = manualGenre.value.trim();
   if (!title) { manualTitle.focus(); return; }
@@ -550,17 +595,23 @@ $("#manual-confirm").addEventListener("click", async () => {
   }
 });
 
-manualImdb.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") $("#manual-confirm").click();
-});
+[manualImdb, manualYoutube].forEach((input) =>
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") $("#manual-confirm").click();
+  })
+);
 
 // ---------- Flash toast ----------
-function showFlash(title, genre, showId) {
+function showFlash(title, genre, showId, mediaType) {
   const toast = document.createElement("div");
   toast.className = "flash-toast";
+  // YouTube videos have no genre, so there is nothing to edit.
+  const editGenre = mediaType === "youtube"
+    ? ""
+    : '<button class="flash-edit">Edit genre</button>';
   toast.innerHTML = `
     <span class="flash-msg">Added <strong>${escapeHtml(title)}</strong>${genre ? ` under <strong>${escapeHtml(genre)}</strong>` : ""}</span>
-    <button class="flash-edit">Edit genre</button>
+    ${editGenre}
     <button class="flash-close">×</button>
   `;
   document.body.appendChild(toast);
@@ -578,18 +629,21 @@ function showFlash(title, genre, showId) {
     dismiss();
   });
 
-  toast.querySelector(".flash-edit").addEventListener("click", () => {
-    clearTimeout(timer);
-    dismiss();
-    openMoveModal(showId, title, genre);
-  });
+  const editGenreButton = toast.querySelector(".flash-edit");
+  if (editGenreButton) {
+    editGenreButton.addEventListener("click", () => {
+      clearTimeout(timer);
+      dismiss();
+      openMoveModal(showId, title, genre);
+    });
+  }
 }
 
 const flashData = sessionStorage.getItem("flash_added");
 if (flashData) {
   sessionStorage.removeItem("flash_added");
-  const { title, genre, showId } = JSON.parse(flashData);
-  showFlash(title, genre, showId);
+  const { title, genre, showId, mediaType } = JSON.parse(flashData);
+  showFlash(title, genre, showId, mediaType);
 }
 
 // ---------- Utils ----------

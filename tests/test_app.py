@@ -1,3 +1,4 @@
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -220,6 +221,157 @@ class AppTests(unittest.TestCase):
         )
 
         self.assertEqual(response.status_code, 400)
+
+    @staticmethod
+    def _youtube_metadata(title="A Video Title"):
+        return {
+            "tmdb_id": "dQw4w9WgXcQ",
+            "media_type": "youtube",
+            "title": title,
+            "year": "2009",
+            "overview": "A description",
+            "poster_url": "https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg",
+            "imdb_url": "",
+            "network": "A Channel",
+            "country": "",
+            "status": "",
+            "genres": [],
+        }
+
+    @staticmethod
+    def _sections(html):
+        """Split a rendered library page into (opening_tag, block_html) pairs."""
+        sections = []
+        for block in html.split('<section class="genre-block')[1:]:
+            opening, _, rest = block.partition(">")
+            body, _, _ = rest.partition("</section>")
+            sections.append((opening, body))
+        return sections
+
+    @patch("app.youtube.details")
+    def test_add_youtube_video_uses_the_api_and_gets_no_genre(self, details):
+        details.return_value = self._youtube_metadata()
+
+        response = self.client.post(
+            "/api/shows",
+            json={
+                "media_type": "youtube",
+                "youtube_url": "https://youtu.be/dQw4w9WgXcQ",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["show"]["media_type"], "youtube")
+        self.assertEqual(response.json["show"]["title"], "A Video Title")
+        self.assertEqual(response.json["genre_name"], "")
+
+        # The client sends a URL; the id is extracted server-side.
+        details.assert_called_once_with("dQw4w9WgXcQ")
+
+        conn = application.db.get_db()
+        row = conn.execute(
+            "SELECT genre_id FROM shows WHERE media_type = 'youtube'"
+        ).fetchone()
+        conn.close()
+        self.assertIsNone(row["genre_id"])
+
+        # No genre was invented for the video.
+        self.assertEqual(self.client.get("/api/genres").json["genres"], [])
+
+    @patch("app.youtube.details")
+    def test_youtube_video_renders_in_its_own_section(self, details):
+        details.return_value = self._youtube_metadata()
+        self.client.post(
+            "/api/shows",
+            json={"media_type": "youtube", "youtube_url": "dQw4w9WgXcQ"},
+        )
+
+        page = self.client.get("/").data.decode()
+        sections = self._sections(page)
+
+        youtube = [body for opening, body in sections if "youtube-block" in opening]
+        self.assertEqual(len(youtube), 1, "expected one YouTube section")
+        self.assertIn("A Video Title", youtube[0])
+        self.assertIn(
+            'href="https://www.youtube.com/watch?v=dQw4w9WgXcQ"', youtube[0]
+        )
+        # YouTube is not a genre, so there is nothing to re-categorise.
+        self.assertNotIn("Edit genre", youtube[0])
+        # The media type keeps its own capitalisation.
+        self.assertIn("· YouTube", youtube[0])
+
+        # It must not be folded into the uncategorised bucket either.
+        for opening, body in sections:
+            if "orphan-block" in opening:
+                self.assertNotIn("A Video Title", body)
+
+    @patch("app.youtube.details")
+    def test_videos_are_listed_separately_from_genre_blocks(self, details):
+        details.return_value = self._youtube_metadata()
+        self.client.post(
+            "/api/shows",
+            json={"media_type": "youtube", "youtube_url": "dQw4w9WgXcQ"},
+        )
+        # A plain manually added title with a genre, to compare against.
+        self.client.post(
+            "/api/shows", json={"title": "The Wire", "genre_name": "Drama"}
+        )
+
+        sections = self._sections(self.client.get("/").data.decode())
+        labels = [opening for opening, _ in sections]
+
+        self.assertTrue(any("data-genre-id" in label for label in labels))
+        self.assertTrue(any("youtube-block" in label for label in labels))
+        self.assertFalse(any("orphan-block" in label for label in labels))
+
+    @patch("app.youtube.details")
+    def test_youtube_genre_suggestions_are_empty(self, details):
+        details.return_value = self._youtube_metadata()
+        added = self.client.post(
+            "/api/shows",
+            json={"media_type": "youtube", "youtube_url": "dQw4w9WgXcQ"},
+        )
+        show_id = added.json["show"]["id"]
+
+        response = self.client.get(f"/api/shows/{show_id}/tmdb-genres")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["genres"], [])
+
+    @patch.dict(os.environ, {"YOUTUBE_API_KEY": "key"})
+    def test_youtube_config_hint_is_hidden_when_configured(self):
+        page = self.client.get("/").data.decode()
+
+        self.assertNotIn("YouTube is not configured", page)
+
+    def test_youtube_config_hint_is_shown_when_unconfigured(self):
+        with patch.dict(os.environ, {}, clear=True):
+            page = self.client.get("/").data.decode()
+
+        self.assertIn("YouTube is not configured", page)
+
+    @patch("app.youtube.details")
+    def test_duplicate_youtube_video_is_rejected(self, details):
+        details.return_value = self._youtube_metadata()
+        payload = {"media_type": "youtube", "youtube_url": "dQw4w9WgXcQ"}
+
+        first = self.client.post("/api/shows", json=payload)
+        second = self.client.post("/api/shows", json=payload)
+
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 409)
+
+    def test_add_youtube_rejects_a_non_youtube_url(self):
+        response = self.client.post(
+            "/api/shows",
+            json={
+                "media_type": "youtube",
+                "youtube_url": "https://vimeo.com/12345678",
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("YouTube", response.json["error"])
 
 
 if __name__ == "__main__":

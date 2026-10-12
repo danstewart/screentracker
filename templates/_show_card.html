@@ -12,14 +12,16 @@
         <h3 class="show-title">{{ show.title }}</h3>
         <p class="show-sub">
           {% if show.year %}{{ show.year }}{% endif %}
-          {% if show.media_type %} · {{ show.media_type|capitalize }}{% endif %}
+          {% if show.media_type %} · {{ show.media_type|typelabel }}{% endif %}
           {% if show.watched and show.watched_at %} · Watched {{ show.watched_at|watcheddate }}{% endif %}
         </p>
       </div>
       <div class="show-menu">
         <button class="show-menu-btn" data-show-id="{{ show.id }}" title="Actions">⋯</button>
         <div class="show-menu-dropdown hidden">
-          {% if show.tmdb_id and show.media_type and show.media_type != 'game' %}
+          {% if show.media_type == 'youtube' %}
+            <a class="menu-item show-youtube" href="https://www.youtube.com/watch?v={{ show.tmdb_id }}" target="_blank" rel="noopener">YouTube</a>
+          {% elif show.tmdb_id and show.media_type and show.media_type != 'game' %}
             <a class="menu-item show-tmdb" href="https://www.themoviedb.org/{{ 'movie' if show.media_type == 'movie' else 'tv' }}/{{ show.tmdb_id }}" target="_blank" rel="noopener">TMDB</a>
           {% endif %}
           {% if show.imdb_url %}
@@ -30,7 +32,9 @@
           {% else %}
             <button class="menu-item show-watched" data-show-id="{{ show.id }}">Mark watched</button>
           {% endif %}
-          <button class="menu-item show-move" data-show-id="{{ show.id }}">Edit genre</button>
+          {% if show.media_type != 'youtube' %}
+            <button class="menu-item show-move" data-show-id="{{ show.id }}">Edit genre</button>
+          {% endif %}
           <button class="menu-item show-delete danger" data-show-id="{{ show.id }}">Remove</button>
         </div>
       </div>

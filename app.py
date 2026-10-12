@@ -1,4 +1,4 @@
-"""TV Show, Movie & Game Manager - Flask app"""
+"""TV Show, Movie, Game & Video Manager - Flask app"""
 
 import os
 import secrets
@@ -10,7 +10,15 @@ from flask import Flask, jsonify, redirect, render_template, request, session, u
 
 load_dotenv()
 
-from lib import db, igdb, tmdb
+from lib import db, igdb, tmdb, youtube
+
+# Media type -> (client module, label used in error messages).
+_METADATA_SOURCES = {
+    "movie": (tmdb, "TMDB"),
+    "series": (tmdb, "TMDB"),
+    "game": (igdb, "IGDB"),
+    "youtube": (youtube, "YouTube"),
+}
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
@@ -18,6 +26,12 @@ app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Strict"
 
 AUTH_PASSWORD = os.environ.get("AUTH_PASSWORD", "")
+
+
+@app.template_filter("typelabel")
+def type_label_filter(value):
+    """Human-readable media type, preserving YouTube's own capitalisation."""
+    return {"youtube": "YouTube"}.get(value, (value or "").capitalize())
 
 
 @app.template_filter("watcheddate")
@@ -60,21 +74,49 @@ def auth():
 
 # --- Routes -----------------------------------------------------------------
 def _group_shows(conn, watched):
+    """Genre-grouped titles plus the uncategorised ones.
+
+    YouTube videos are excluded: they get their own section rather than a
+    genre, so they must not fall into the "Uncategorised" bucket either.
+    """
     flag = 1 if watched else 0
     genres = conn.execute("SELECT * FROM genres ORDER BY sort_order, name").fetchall()
     grouped = []
     for g in genres:
         shows = conn.execute(
-            "SELECT * FROM shows WHERE genre_id = ? AND watched = ? ORDER BY title",
+            """SELECT * FROM shows
+               WHERE genre_id = ? AND watched = ? AND media_type != 'youtube'
+               ORDER BY title""",
             (g["id"], flag),
         ).fetchall()
         if shows:
             grouped.append({"genre": g, "shows": shows})
     orphans = conn.execute(
-        "SELECT * FROM shows WHERE genre_id IS NULL AND watched = ? ORDER BY title",
+        """SELECT * FROM shows
+           WHERE genre_id IS NULL AND watched = ? AND media_type != 'youtube'
+           ORDER BY title""",
         (flag,),
     ).fetchall()
     return grouped, orphans
+
+
+def _youtube_section(conn, watched):
+    flag = 1 if watched else 0
+    return conn.execute(
+        """SELECT * FROM shows
+           WHERE media_type = 'youtube' AND watched = ?
+           ORDER BY title""",
+        (flag,),
+    ).fetchall()
+
+
+def _fetch_metadata(media_type, source_id):
+    """Fetch normalized metadata from whichever source owns a media type."""
+    if media_type == "game":
+        return igdb.details(source_id)
+    if media_type == "youtube":
+        return youtube.details(source_id)
+    return tmdb.details(media_type, source_id)
 
 
 @app.route("/")
@@ -82,15 +124,20 @@ def index():
     conn = db.get_db()
     watching_grouped, watching_orphans = _group_shows(conn, watched=False)
     watched_grouped, watched_orphans = _group_shows(conn, watched=True)
+    watching_youtube = _youtube_section(conn, watched=False)
+    watched_youtube = _youtube_section(conn, watched=True)
     conn.close()
     return render_template(
         "index.html",
         watching_grouped=watching_grouped,
         watching_orphans=watching_orphans,
+        watching_youtube=watching_youtube,
         watched_grouped=watched_grouped,
         watched_orphans=watched_orphans,
+        watched_youtube=watched_youtube,
         tmdb_configured=tmdb.is_configured(),
         igdb_configured=igdb.is_configured(),
+        youtube_configured=youtube.is_configured(),
     )
 
 
@@ -180,19 +227,23 @@ def api_add_show():
     tmdb_id = str(data.get("tmdb_id") or "")
     media_type = data.get("media_type") or ""
     source_genres = []
+
+    if media_type == "youtube":
+        tmdb_id = youtube.video_id(data.get("youtube_url") or "")
+        if not tmdb_id:
+            return jsonify(
+                {"error": "Enter a YouTube video URL or 11-character video ID"}
+            ), 400
+
     if tmdb_id:
-        if media_type not in ("movie", "series", "game"):
+        if media_type not in _METADATA_SOURCES:
             return jsonify({"error": "Invalid media type"}), 400
-        is_game = media_type == "game"
-        source, client = ("IGDB", igdb) if is_game else ("TMDB", tmdb)
+        client, label = _METADATA_SOURCES[media_type]
         try:
-            if is_game:
-                metadata = igdb.details(tmdb_id)
-            else:
-                metadata = tmdb.details(media_type, tmdb_id)
+            metadata = _fetch_metadata(media_type, tmdb_id)
         except requests.HTTPError as exc:
             status = exc.response.status_code
-            return jsonify({"error": f"{source} error: {status}"}), 502
+            return jsonify({"error": f"{label} error: {status}"}), 502
         except Exception as exc:
             return jsonify({"error": client.safe_error(exc)}), 500
         data.update(metadata)
@@ -322,7 +373,9 @@ def api_show_tmdb_genres(show_id):
     conn.close()
     if not row or not row["tmdb_id"]:
         return jsonify({"genres": []})
-    if row["media_type"] == "game":
+    if row["media_type"] == "youtube":
+        genres = []
+    elif row["media_type"] == "game":
         genres = igdb.fetch_genres(row["tmdb_id"])
     else:
         genres = tmdb.fetch_genres(row["media_type"], row["tmdb_id"])

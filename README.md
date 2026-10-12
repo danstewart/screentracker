@@ -1,18 +1,20 @@
-# ScreenTracker — TV, Film & Game Library
+# ScreenTracker — TV, Film, Game & Video Library
 
-A Flask web app for managing a personal library of TV shows, movies and video
-games, with search powered by **The Movie Database (TMDB)** and **IGDB**.
-Each item is grouped into a genre (you can create new genres on the fly), and
-the library is stored locally in SQLite.
+A Flask web app for managing a personal library of TV shows, movies, video
+games and YouTube videos, with search powered by **The Movie Database (TMDB)**
+and **IGDB**. Each title is grouped into a genre (you can create new genres on
+the fly) — except YouTube videos, which get their own section. The library is
+stored locally in SQLite.
 
 ## Features
 
 - 🔍 **Live search** across TMDB movies and TV series plus IGDB games as you type
 - 🎬 **Rich previews** in search results: poster, year, network, country, overview
 - 🎮 **Game support** with cover art, developer, release year and genre, alongside TV and film
+- 📺 **YouTube videos** added by URL, kept in their own section with thumbnail, channel and year
 - 📁 **Genre grouping** — pick an existing genre or create a new one when adding
-- 🔄 **Move shows** between genres
-- 🗑️ **Delete** shows or whole genres
+- 🔄 **Move titles** between genres
+- 🗑️ **Delete** titles or whole genres
 - 🎨 Dark, magazine-style UI
 
 ## Setup
@@ -59,7 +61,25 @@ the library is stored locally in SQLite.
    Without these, search silently skips games and returns TV/film results only.
    Add them to `.env` to persist across restarts (the app calls `load_dotenv()`).
 
-6. **Run the app:**
+6. **Get a YouTube API key** (optional, free within quota) to add videos:
+
+   - Create a project in the [Google Cloud Console](https://console.cloud.google.com/)
+   - Enable **YouTube Data API v3**
+   - Create an API key under **Credentials** (restrict it to the YouTube Data API)
+
+   Only `videos.list` is called, which costs **1 quota unit** of the free
+   **10,000 per day** allowance, so a personal library will never come close.
+
+7. **Set the YouTube API key:**
+
+   ```bash
+   export YOUTUBE_API_KEY="your-api-key"
+   ```
+
+   Without it the YouTube tab in "Add manually" shows a hint and refuses to add
+   videos; everything else still works.
+
+8. **Run the app:**
 
    ```bash
    python app.py
@@ -76,9 +96,10 @@ docker compose -f docker-compose.yml up -d --build
 
 ## How it works
 
-- **`app.py`** — Flask routes + TMDB/IGDB integration + SQLite persistence
+- **`app.py`** — Flask routes + TMDB/IGDB/YouTube integration + SQLite persistence
 - **`lib/tmdb.py`** — TMDB client and response normalization
 - **`lib/igdb.py`** — IGDB client, Twitch app-token caching and normalization
+- **`lib/youtube.py`** — YouTube Data API client, URL/video-id parsing and normalization
 - **`templates/index.html`** — Main page rendering grouped titles
 - **`static/app.js`** — Search, modals, and card actions
 - **`static/style.css`** — Styling
@@ -100,15 +121,28 @@ docker compose -f docker-compose.yml up -d --build
 
 - TMDB multi-search returns people as well as titles; the app filters results to
   series and movies only.
-- The two sources are searched independently, so one being down still returns
-  the other's results. Partial failures are reported under an `errors` key.
+- The two search sources are queried independently, so one being down still
+  returns the other's results. Partial failures are reported under an `errors` key.
+- YouTube videos are **not** part of the main search box. They are added from the
+  **YouTube** tab of the "Add manually" dialog by pasting a video URL or an
+  11-character video ID. `watch?v=`, `youtu.be/`, `/shorts/`, `/embed/`,
+  `/live/` and `/v/` links all work.
+- YouTube videos are stored with `media_type = 'youtube'` and a `NULL` genre, so
+  they render in their own section instead of inside a genre or the
+  "Uncategorised" bucket, and they offer no genre action.
+- All four media types share one `shows` table: `media_type` is part of the
+  uniqueness key alongside the source id, so a TMDB id and an IGDB id that happen
+  to match cannot collide. No schema change was needed for videos.
 - IGDB is queried with `game_type = (0,4,8,9,10,11,12)` and
   `version_parent = null`, which keeps main games, remakes, remasters and ports
   while dropping DLC, expansions, bundles, mods, packs and store editions.
 - IGDB retired the `status` and `category` game fields, so the release status is
   derived from `first_release_date` (`Released` / `Upcoming`).
-- IGDB provides no IMDb id and no country of origin, so those fields stay empty
-  for games and the card's IMDb link is omitted.
-- Metadata is refreshed from TMDB/IGDB when a search result is added.
+- IGDB provides no IMDb id and no country of origin, and YouTube provides
+  neither, so those fields stay empty and the card's IMDb link is omitted.
+- The channel name and developer are only shown while searching, not on saved
+  cards: the `shows` table has no column for them.
+- Metadata is refreshed from TMDB, IGDB or the YouTube API when a search result
+  or video is added.
 - TMDB and IGDB data and images are attributed in the application footer as
   required.

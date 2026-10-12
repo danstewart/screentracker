@@ -3,7 +3,7 @@
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-		<title>TV Show & Movie Library</title>
+		<title>ScreenTracker — TV, Film, Game &amp; Video Library</title>
 		<link
 			href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap"
 			rel="stylesheet"
@@ -25,7 +25,7 @@
 		<header class="site-header">
 			<div class="brand">
 				<h1>SCREEN<span>TRACKER</span></h1>
-				<p>Personal TV, Film &amp; Game Library</p>
+				<p>Personal TV, Film, Game &amp; Video Library</p>
 			</div>
 
 			<div class="search-wrap">
@@ -68,6 +68,9 @@
 					<label class="filter-chip">
 						<input type="checkbox" class="type-filter" value="game" />Games
 					</label>
+					<label class="filter-chip">
+						<input type="checkbox" class="type-filter" value="youtube" />YouTube
+					</label>
 				</div>
 				<div class="filter-group" id="genre-filter-group">
 					<span class="filter-label">Genre</span>
@@ -90,10 +93,10 @@
 			</div>
 
 			<div id="watching-library">
-				{% if not watching_grouped and not watching_orphans %}
+				{% if not watching_grouped and not watching_orphans and not watching_youtube %}
 				<div class="empty-state">
 					<h2>Your library is empty</h2>
-					<p>Search above to add your first show or film.</p>
+					<p>Search above to add your first show, film or game, or use "Add manually" for YouTube videos.</p>
 				</div>
 				{% endif %} {% for block in watching_grouped %}
 				<section class="genre-block" data-genre-id="{{ block.genre.id }}">
@@ -123,11 +126,25 @@
 						{% for show in watching_orphans %}{% include "_show_card.html" %}{% endfor %}
 					</div>
 				</section>
+				{% endif %} {% if watching_youtube %}
+				<section class="genre-block youtube-block">
+					<header class="genre-header">
+						<h2>
+							<button class="genre-toggle" type="button" aria-expanded="true">
+								<span class="genre-toggle-icon" aria-hidden="true">▾</span>
+								<span class="genre-name">YouTube</span>
+							</button>
+						</h2>
+					</header>
+					<div class="shows-grid">
+						{% for show in watching_youtube %}{% include "_show_card.html" %}{% endfor %}
+					</div>
+				</section>
 				{% endif %}
 			</div>
 
 			<div id="watched-library" class="hidden">
-				{% if not watched_grouped and not watched_orphans %}
+				{% if not watched_grouped and not watched_orphans and not watched_youtube %}
 				<div class="empty-state">
 					<h2>Nothing watched yet</h2>
 					<p>Mark shows as watched and they'll appear here.</p>
@@ -158,6 +175,20 @@
 					</header>
 					<div class="shows-grid">
 						{% for show in watched_orphans %}{% include "_show_card.html" %}{% endfor %}
+					</div>
+				</section>
+				{% endif %} {% if watched_youtube %}
+				<section class="genre-block youtube-block">
+					<header class="genre-header">
+						<h2>
+							<button class="genre-toggle" type="button" aria-expanded="true">
+								<span class="genre-toggle-icon" aria-hidden="true">▾</span>
+								<span class="genre-name">YouTube</span>
+							</button>
+						</h2>
+					</header>
+					<div class="shows-grid">
+						{% for show in watched_youtube %}{% include "_show_card.html" %}{% endfor %}
 					</div>
 				</section>
 				{% endif %}
@@ -194,17 +225,54 @@
 		<div id="manual-modal" class="modal hidden">
 			<div class="modal-content">
 				<h3>Add manually</h3>
-				<label for="manual-title">Title</label>
-				<input id="manual-title" type="text" placeholder="e.g. The Wire" />
-				<label for="manual-genre">Genre</label>
-				<div class="genre-input-wrap">
-					<input id="manual-genre" type="text" autocomplete="off" placeholder="e.g. Drama" />
-					<div id="manual-genre-suggestions-list" class="suggestions-list hidden"></div>
+				<div class="modal-tabs">
+					<button class="modal-tab active" type="button" data-tab="title">
+						Movies &amp; TV
+					</button>
+					<button class="modal-tab" type="button" data-tab="youtube">YouTube</button>
 				</div>
-				<label for="manual-imdb"
-					>IMDb URL <span style="text-transform: none; letter-spacing: 0">(optional)</span></label
-				>
-				<input id="manual-imdb" type="url" placeholder="https://www.imdb.com/title/…" />
+
+				<div class="manual-panel" data-panel="title">
+					<label for="manual-title">Title</label>
+					<input id="manual-title" type="text" placeholder="e.g. The Wire" />
+					<label for="manual-genre">Genre</label>
+					<div class="genre-input-wrap">
+						<input id="manual-genre" type="text" autocomplete="off" placeholder="e.g. Drama" />
+						<div id="manual-genre-suggestions-list" class="suggestions-list hidden"></div>
+					</div>
+					<label for="manual-imdb"
+						>IMDb URL <span style="text-transform: none; letter-spacing: 0">(optional)</span></label
+					>
+					<input id="manual-imdb" type="url" placeholder="https://www.imdb.com/title/…" />
+				</div>
+
+				<div class="manual-panel hidden" data-panel="youtube">
+					<label for="manual-youtube">YouTube URL</label>
+					<input
+						id="manual-youtube"
+						type="text"
+						inputmode="url"
+						autocomplete="off"
+						placeholder="https://www.youtube.com/watch?v=…"
+					/>
+					<p class="manual-hint">
+						Paste a video URL or an 11-character video ID. The title, channel, year and
+						thumbnail are fetched automatically, and the video is added to the YouTube
+						section rather than to a genre.
+					</p>
+					{% if not youtube_configured %}
+					<p class="manual-hint manual-hint--warn">
+						YouTube is not configured. Set <code>YOUTUBE_API_KEY</code> to add videos.
+						<a
+							href="https://console.cloud.google.com/apis/credentials"
+							target="_blank"
+							rel="noopener"
+							>Get an API key</a
+						>.
+					</p>
+					{% endif %}
+				</div>
+
 				<div class="modal-actions">
 					<button id="manual-cancel" class="btn-secondary">Cancel</button>
 					<button id="manual-confirm" class="btn-primary">Add</button>
