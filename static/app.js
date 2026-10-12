@@ -4,6 +4,7 @@ const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
 // ---------- State ----------
 let currentMoveShowId = null;
+let currentTimestampShowId = null;
 let libraryIndex = null; // Set of "media_type:tmdb_id" strings
 
 async function ensureLibraryIndex() {
@@ -166,6 +167,12 @@ const genreSuggestionsList = $("#genre-suggestions-list");
 const modalConfirm = $("#modal-confirm");
 const modalCancel = $("#modal-cancel");
 
+const timestampModal = $("#timestamp-modal");
+const timestampPreview = $("#timestamp-preview");
+const timestampInput = $("#timestamp-input");
+const timestampConfirm = $("#timestamp-confirm");
+const timestampCancel = $("#timestamp-cancel");
+
 bindSuggestions(genreInput, genreSuggestionsList);
 
 async function submitShow(payload) {
@@ -287,6 +294,44 @@ modalConfirm.addEventListener("click", async () => {
 
 genreInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") modalConfirm.click();
+});
+
+// ---------- YouTube timestamp modal ----------
+function openTimestampModal(showId, title, seconds) {
+  currentTimestampShowId = showId;
+  timestampPreview.innerHTML = `
+    <div class="preview-info">
+      <h4>${escapeHtml(title)}</h4>
+    </div>
+  `;
+  timestampInput.value = seconds || "";
+  timestampModal.classList.remove("hidden");
+  timestampInput.focus();
+}
+
+timestampCancel.addEventListener("click", () => timestampModal.classList.add("hidden"));
+timestampModal.addEventListener("click", (e) => {
+  if (e.target === timestampModal) timestampModal.classList.add("hidden");
+});
+
+timestampConfirm.addEventListener("click", async () => {
+  if (!currentTimestampShowId) return;
+  const r = await fetch(`/api/shows/${currentTimestampShowId}/timestamp`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ timestamp: timestampInput.value.trim() }),
+  });
+  if (!r.ok) {
+    const data = await r.json().catch(() => ({}));
+    window.alert(data.error || "Could not save timestamp");
+    return;
+  }
+  timestampModal.classList.add("hidden");
+  location.reload();
+});
+
+timestampInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") timestampConfirm.click();
 });
 
 // ---------- Filters ----------
@@ -491,6 +536,14 @@ document.addEventListener("click", async (e) => {
     if (section && section.querySelectorAll(".show-card").length === 0) {
       section.remove();
     }
+    return;
+  }
+
+  // Edit YouTube timestamp
+  if (e.target.classList.contains("show-timestamp")) {
+    const card = e.target.closest(".show-card");
+    const title = $(".show-title", card).textContent;
+    openTimestampModal(e.target.dataset.showId, title, e.target.dataset.timestamp);
     return;
   }
 

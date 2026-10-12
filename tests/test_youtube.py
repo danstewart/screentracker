@@ -53,6 +53,37 @@ class YouTubeVideoIdTests(unittest.TestCase):
             self.assertEqual(youtube.video_id(value), "", repr(value))
 
 
+class YouTubeTimestampTests(unittest.TestCase):
+    def test_parses_the_supported_forms_to_seconds(self):
+        cases = {
+            "90": 90,
+            "1:23": 83,
+            "1:02:03": 3723,
+            "1h2m3s": 3723,
+            "2m": 120,
+            "45s": 45,
+            "1h": 3600,
+        }
+
+        for value, expected in cases.items():
+            self.assertEqual(youtube.parse_timestamp(value), expected, value)
+
+    def test_empty_and_zero_clear_the_timestamp(self):
+        for value in ("", "   ", None, "0"):
+            self.assertIsNone(youtube.parse_timestamp(value), repr(value))
+
+    def test_rejects_input_it_cannot_parse(self):
+        for value in ("abc", "1:90", "1h90m", "1:2:3:4", "1.5", "-5"):
+            with self.assertRaises(ValueError, msg=repr(value)):
+                youtube.parse_timestamp(value)
+
+    def test_formats_seconds_for_display(self):
+        cases = {45: "0:45", 83: "1:23", 3723: "1:02:03"}
+
+        for value, expected in cases.items():
+            self.assertEqual(youtube.format_timestamp(value), expected, value)
+
+
 class YouTubeDetailsTests(unittest.TestCase):
     def _response(self, payload):
         response = Mock()

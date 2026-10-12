@@ -221,6 +221,23 @@
 			</div>
 		</div>
 
+		<!-- Timestamp modal -->
+		<div id="timestamp-modal" class="modal hidden">
+			<div class="modal-content">
+				<h3>YouTube timestamp</h3>
+				<div id="timestamp-preview"></div>
+				<label for="timestamp-input">Start time</label>
+				<input id="timestamp-input" type="text" autocomplete="off" placeholder="e.g. 1:23 or 90" />
+				<p class="manual-hint">
+					The YouTube link opens at this point. Leave it blank to remove the timestamp.
+				</p>
+				<div class="modal-actions">
+					<button id="timestamp-cancel" class="btn-secondary">Cancel</button>
+					<button id="timestamp-confirm" class="btn-primary">Save</button>
+				</div>
+			</div>
+		</div>
+
 		<!-- Manual add modal -->
 		<div id="manual-modal" class="modal hidden">
 			<div class="modal-content">

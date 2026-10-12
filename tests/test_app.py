@@ -361,6 +361,97 @@ class AppTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json["genres"], [])
 
+    @patch("app.youtube.details")
+    def test_youtube_timestamp_is_added_to_the_watch_link(self, details):
+        details.return_value = self._youtube_metadata()
+        added = self.client.post(
+            "/api/shows",
+            json={"media_type": "youtube", "youtube_url": "dQw4w9WgXcQ"},
+        )
+        show_id = added.json["show"]["id"]
+
+        response = self.client.put(
+            f"/api/shows/{show_id}/timestamp", json={"timestamp": "1:23"}
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["timestamp"], 83)
+
+        page = self.client.get("/").data.decode()
+        self.assertIn("watch?v=dQw4w9WgXcQ&amp;t=83", page)
+        self.assertIn('data-timestamp="1:23"', page)
+        self.assertIn("Edit timestamp", page)
+
+    @patch("app.youtube.details")
+    def test_youtube_timestamp_can_be_cleared(self, details):
+        details.return_value = self._youtube_metadata()
+        added = self.client.post(
+            "/api/shows",
+            json={"media_type": "youtube", "youtube_url": "dQw4w9WgXcQ"},
+        )
+        show_id = added.json["show"]["id"]
+        self.client.put(
+            f"/api/shows/{show_id}/timestamp", json={"timestamp": "1:23"}
+        )
+
+        response = self.client.put(
+            f"/api/shows/{show_id}/timestamp", json={"timestamp": ""}
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.json["timestamp"])
+
+        page = self.client.get("/").data.decode()
+        self.assertNotIn("&amp;t=", page)
+        self.assertIn("Add timestamp", page)
+
+    @patch("app.youtube.details")
+    def test_youtube_timestamp_rejects_unparseable_input(self, details):
+        details.return_value = self._youtube_metadata()
+        added = self.client.post(
+            "/api/shows",
+            json={"media_type": "youtube", "youtube_url": "dQw4w9WgXcQ"},
+        )
+        show_id = added.json["show"]["id"]
+
+        response = self.client.put(
+            f"/api/shows/{show_id}/timestamp", json={"timestamp": "halfway"}
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("1:23", response.json["error"])
+
+    @patch("app.tmdb.details")
+    def test_youtube_timestamp_is_rejected_for_other_media(self, details):
+        details.return_value = {
+            "tmdb_id": "1396",
+            "media_type": "series",
+            "title": "Breaking Bad",
+            "year": "2008",
+            "overview": "",
+            "poster_url": "",
+            "imdb_url": "",
+            "genres": [],
+        }
+        added = self.client.post(
+            "/api/shows",
+            json={"tmdb_id": "1396", "media_type": "series", "title": "x"},
+        )
+        show_id = added.json["show"]["id"]
+
+        response = self.client.put(
+            f"/api/shows/{show_id}/timestamp", json={"timestamp": "10"}
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_youtube_timestamp_returns_not_found_for_unknown_show(self):
+        response = self.client.put(
+            "/api/shows/9999/timestamp", json={"timestamp": "10"}
+        )
+
+        self.assertEqual(response.status_code, 404)
+
     @patch.dict(os.environ, {"YOUTUBE_API_KEY": "key"})
     def test_youtube_config_hint_is_hidden_when_configured(self):
         page = self.client.get("/").data.decode()

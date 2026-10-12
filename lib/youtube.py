@@ -31,6 +31,10 @@ _EMBEDDED_ID_RE = re.compile(
 # Best first. The API omits sizes it has not generated.
 _THUMBNAIL_ORDER = ("maxres", "standard", "high", "medium", "default")
 
+# Clock form ("1:23", "1:02:03") and the h/m/s form YouTube prints ("1h2m3s").
+_CLOCK_RE = re.compile(r"^\d+(?::\d+){1,2}$")
+_DURATION_RE = re.compile(r"^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$", re.IGNORECASE)
+
 
 def is_configured():
     """Return whether a YouTube API key is configured."""
@@ -47,6 +51,48 @@ def safe_error(exc):
     if response is not None and getattr(response, "status_code", None):
         return f"YouTube HTTP {response.status_code}"
     return re.sub(r"([?&]key=)[^&\s]+", r"\1[redacted]", str(exc))
+
+
+def parse_timestamp(value):
+    """Return a start offset in whole seconds, or None when the value is empty.
+
+    Accepts plain seconds ("90"), clock form ("1:23", "1:02:03") and the
+    h/m/s form YouTube prints ("1h2m3s"). Raises ValueError on anything else
+    so callers can reject bad input instead of silently losing it.
+    """
+    text = str(value if value is not None else "").strip().lower()
+    if not text:
+        return None
+
+    if text.isdigit():
+        return int(text) or None
+
+    if _CLOCK_RE.match(text):
+        parts = [int(part) for part in text.split(":")]
+        if len(parts) == 2:
+            minutes, seconds = parts
+            if seconds < 60:
+                return minutes * 60 + seconds
+        else:
+            hours, minutes, seconds = parts
+            if minutes < 60 and seconds < 60:
+                return hours * 3600 + minutes * 60 + seconds
+
+    match = _DURATION_RE.match(text)
+    if match and any(match.groups()):
+        hours, minutes, seconds = (int(part) if part else 0 for part in match.groups())
+        if minutes < 60 and seconds < 60:
+            return hours * 3600 + minutes * 60 + seconds
+
+    raise ValueError("Enter a time like 1:23, 1:02:03 or 90")
+
+
+def format_timestamp(seconds):
+    """Format whole seconds as h:mm:ss or m:ss for display in the menu."""
+    total = int(seconds or 0)
+    hours, remainder = divmod(total, 3600)
+    minutes, secs = divmod(remainder, 60)
+    return f"{hours}:{minutes:02d}:{secs:02d}" if hours else f"{minutes}:{secs:02d}"
 
 
 def video_id(value):

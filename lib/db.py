@@ -53,6 +53,8 @@ def init_db():
         conn.execute("ALTER TABLE shows ADD COLUMN tmdb_id TEXT")
     if "media_type" not in columns:
         conn.execute("ALTER TABLE shows ADD COLUMN media_type TEXT")
+    if "youtube_timestamp" not in columns:
+        conn.execute("ALTER TABLE shows ADD COLUMN youtube_timestamp INTEGER")
     conn.execute(
         """CREATE UNIQUE INDEX IF NOT EXISTS shows_tmdb_identity
            ON shows (tmdb_id, media_type)

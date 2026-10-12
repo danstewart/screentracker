@@ -12,6 +12,7 @@ stored locally in SQLite.
 - 🎬 **Rich previews** in search results: poster, year, network, country, overview
 - 🎮 **Game support** with cover art, developer, release year and genre, alongside TV and film
 - 📺 **YouTube videos** added by URL, kept in their own section with thumbnail, channel and year
+- ⏱️ **YouTube timestamps** — set or edit a start time so the watch link jumps to the right moment
 - 📁 **Genre grouping** — pick an existing genre or create a new one when adding
 - 🔄 **Move titles** between genres
 - 🗑️ **Delete** titles or whole genres

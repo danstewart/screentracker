@@ -20,7 +20,8 @@
         <button class="show-menu-btn" data-show-id="{{ show.id }}" title="Actions">⋯</button>
         <div class="show-menu-dropdown hidden">
           {% if show.media_type == 'youtube' %}
-            <a class="menu-item show-youtube" href="https://www.youtube.com/watch?v={{ show.tmdb_id }}" target="_blank" rel="noopener">YouTube</a>
+            <a class="menu-item show-youtube" href="https://www.youtube.com/watch?v={{ show.tmdb_id }}{% if show.youtube_timestamp %}&amp;t={{ show.youtube_timestamp }}{% endif %}" target="_blank" rel="noopener">YouTube</a>
+            <button class="menu-item show-timestamp" data-show-id="{{ show.id }}" data-timestamp="{{ show.youtube_timestamp|videotime }}">{% if show.youtube_timestamp %}Edit timestamp{% else %}Add timestamp{% endif %}</button>
           {% elif show.tmdb_id and show.media_type and show.media_type != 'game' %}
             <a class="menu-item show-tmdb" href="https://www.themoviedb.org/{{ 'movie' if show.media_type == 'movie' else 'tv' }}/{{ show.tmdb_id }}" target="_blank" rel="noopener">TMDB</a>
           {% endif %}

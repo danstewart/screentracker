@@ -36,6 +36,12 @@ def type_label_filter(value):
     return {"youtube": "YouTube"}.get(value, (value or "").capitalize())
 
 
+@app.template_filter("videotime")
+def video_time_filter(value):
+    """Render a stored YouTube offset as h:mm:ss or m:ss, or empty if unset."""
+    return youtube.format_timestamp(value) if value else ""
+
+
 @app.template_filter("watcheddate")
 def watched_date_filter(value):
     if not value:
@@ -395,6 +401,33 @@ def api_move_show(show_id):
     conn.commit()
     conn.close()
     return jsonify({"ok": True})
+
+
+@app.route("/api/shows/<int:show_id>/timestamp", methods=["PUT"])
+def api_timestamp_show(show_id):
+    data = request.get_json(force=True)
+    try:
+        seconds = youtube.parse_timestamp(data.get("timestamp"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    conn = db.get_db()
+    row = conn.execute(
+        "SELECT media_type FROM shows WHERE id = ?", (show_id,)
+    ).fetchone()
+    if not row:
+        conn.close()
+        return jsonify({"error": "Not found"}), 404
+    if row["media_type"] != "youtube":
+        conn.close()
+        return jsonify({"error": "Timestamps apply to YouTube videos only"}), 400
+
+    conn.execute(
+        "UPDATE shows SET youtube_timestamp = ? WHERE id = ?", (seconds, show_id)
+    )
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True, "timestamp": seconds})
 
 
 @app.route("/api/shows/<int:show_id>/tmdb-genres")
